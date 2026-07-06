@@ -36,5 +36,12 @@
 # sequences and errors with "Illegal byte sequence." iconv is told its
 # encodings explicitly and doesn't need this, but it's harmless to set
 # for the whole pipeline.
+#
+# No need to reset it afterward: git runs this as its own fresh
+# process per file, so the export dies with this process and never
+# reaches git or the next file's filter invocation. (Only matters if
+# you `source` this script into an interactive shell instead of
+# executing it -- then it WOULD stick around, since sourcing shares
+# environment with the caller.)
 export LC_ALL=C
 iconv -f MACINTOSH -t UTF-8 | tr '\r' '\n'
