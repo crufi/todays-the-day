@@ -62,6 +62,12 @@ git -C "$root" ls-files | while IFS= read -r f; do
     true
 done >"$mactext_paths"
 if [ -s "$mactext_paths" ]; then
+    # mactext-smudge can't announce itself the way import.sh's binhex/
+    # derez conversions do -- its stdout as a git filter *is* the file
+    # content git writes, so printing a status line there would
+    # corrupt the file. This is the only place that can say it happened.
+    echo "converting to Mac Roman / CR line endings:"
+    sed 's/^/  /' "$mactext_paths"
     while IFS= read -r f; do
         rm -f "$root/$f"
     done <"$mactext_paths"
