@@ -6,5 +6,6 @@
 #
 # Reverses maceol-clean: turns the stored LF-based text back into
 # CR-only text in the working tree. See maceol-clean for the full
-# rationale.
+# rationale, including why LC_ALL=C is forced here.
+export LC_ALL=C
 exec tr '\n' '\r'
