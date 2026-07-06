@@ -4,6 +4,9 @@ Git tools for tracking classic Mac OS files that live in their **resource
 fork** rather than their data fork — project files, ResEdit resource files,
 anything from the Symantec/THINK C / CodeWarrior / MPW era.
 
+New to this? [SETUP.md](SETUP.md) is a step-by-step checklist for adding it
+to a fresh repo. This README explains what it does and why.
+
 ## The problem
 
 Git only ever sees a file's data fork. A Symantec C++ project (`.π`) or a
@@ -92,18 +95,8 @@ for `/usr/bin/binhex`, `/usr/bin/DeRez`, `/usr/bin/Rez`, `/usr/bin/SetFile`
 
 This repo is meant to be vendored via `git subtree`, at the fixed path
 `tools/mac-forks/` (the scripts assume that path — they don't work run from
-anywhere else).
-
-First time in a given project:
-
-```sh
-git remote add mac-forks https://github.com/crufi/mac-forks.git
-git subtree add --prefix=tools/mac-forks mac-forks main --squash
-sh tools/mac-forks/install.sh
-```
-
-`install.sh` checks for the required tools, symlinks the hooks into
-`.git/hooks`, and runs `import.sh` once immediately.
+anywhere else). For adding it to a project for the first time, see
+[SETUP.md](SETUP.md). Quick reference for a project that already has it:
 
 Pulling in later improvements:
 
