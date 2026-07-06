@@ -74,8 +74,8 @@ while IFS= read -r f; do
 
     # The real file should never itself be tracked. .gitignore (below)
     # only stops *future* `git add`, so also proactively untrack it in
-    # case it was already committed (e.g. migrating a repo onto this
-    # tooling) or got staged some other way (e.g. `git add -A`).
+    # case it was already committed (e.g. migrating a repo onto these
+    # tools) or got staged some other way (e.g. `git add -A`).
     git rm --cached --ignore-unmatch -q -- "$f" >/dev/null 2>&1 || true
 
     printf '%s\n' "$rel" >>"$manifest"

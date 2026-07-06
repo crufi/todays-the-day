@@ -6,9 +6,10 @@
 #
 #   sh tools/mac-forks/install.sh
 #
-# Without it, the repo is still completely valid: TodaysTheDay.π /
-# .rsrc-style files just stay as their .hqx / .r sidecars, unexpanded.
-# Running this makes the real files show up in the working tree.
+# Without it, the repo is still completely valid: resource-fork-bearing
+# files just stay as their .hqx / .r sidecars, unexpanded, and CR-only
+# text files just stay LF-converted. Running this makes the real files
+# show up in the working tree as a vintage Mac toolchain expects.
 #
 # Requires macOS with the Xcode Command Line Tools installed (for
 # /usr/bin/binhex, /usr/bin/DeRez, /usr/bin/Rez, /usr/bin/SetFile).
@@ -28,7 +29,17 @@ for hook in pre-commit post-checkout post-merge; do
     ln -sf "../../tools/mac-forks/hooks/$hook" "$root/.git/hooks/$hook"
 done
 
-echo "mac-forks hooks installed for $root"
+# maceol has no forks/races to worry about, so it's a plain git filter
+# rather than a hook -- but the filter *driver* still has to be
+# configured locally, same reasoning as the machex/macderez filters
+# used to need (see this project's git history for why that approach
+# was abandoned for resource forks specifically: git's own checkout
+# can't be raced safely). Text-only content has no such problem.
+git config filter.maceol.clean  "$root/tools/mac-forks/maceol-clean"
+git config filter.maceol.smudge "$root/tools/mac-forks/maceol-smudge"
+git config filter.maceol.required true
+
+echo "mac-forks hooks + filters installed for $root"
 
 echo "materializing real files from their .hqx/.r sidecars..."
 "$root/tools/mac-forks/import.sh"
