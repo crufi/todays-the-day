@@ -43,12 +43,29 @@ echo "mac-forks hooks + filters installed for $root"
 
 # Filter config only affects *future* checkouts. If this clone was
 # checked out before maceol was configured, its filtered files are
-# still sitting there un-smudged (LF instead of CR) -- force a
-# re-checkout of everything from HEAD so the smudge filter actually
-# runs now. Safe and a no-op for anything maceol doesn't apply to:
-# clean-filtering already-LF or otherwise-unfiltered content changes
-# nothing.
-git -C "$root" checkout HEAD -- .
+# still sitting there un-smudged (LF instead of CR). A plain
+# `git checkout HEAD -- .` doesn't fix this: git compares the
+# clean-filtered worktree content against the stored blob first, and
+# since an LF-only file cleans to itself (tr '\r' '\n' is a no-op on
+# text with no CR), git thinks nothing changed and skips re-invoking
+# smudge entirely. So instead, delete and re-checkout specifically the
+# files maceol applies to -- with nothing on disk, git has no "already
+# matches" shortcut to take, and smudge is forced to actually run.
+maceol_paths=$(mktemp)
+trap 'rm -f "$maceol_paths"' EXIT
+git -C "$root" ls-files | while IFS= read -r f; do
+    attr=$(git -C "$root" check-attr filter -- "$f" | awk -F': ' '{print $NF}')
+    if [ "$attr" = maceol ]; then
+        printf '%s\n' "$f"
+    fi
+    true
+done >"$maceol_paths"
+if [ -s "$maceol_paths" ]; then
+    while IFS= read -r f; do
+        rm -f "$root/$f"
+    done <"$maceol_paths"
+    xargs git -C "$root" checkout HEAD -- <"$maceol_paths"
+fi
 
 echo "materializing real files from their .hqx/.r sidecars..."
 "$root/tools/mac-forks/import.sh"
