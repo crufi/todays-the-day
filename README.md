@@ -48,10 +48,13 @@ tricks and techniques in there may be instructive to 68K Mac hobbyists.
 Both `.π` and `.π.rsrc` are resource-fork-only files with nothing in their
 data fork, which git can't track directly — this repo uses
 [`tools/mac-forks`](https://github.com/crufi/mac-forks) to capture them as
-plain-text `.hqx`/`.r` sidecars instead. After cloning, run:
+plain-text `.hqx`/`.r` sidecars instead (mac-forks requires macOS with the Xcode Command Line Tools installed (xcode-select --install), for /usr/bin/binhex, /usr/bin/DeRez, /usr/bin/Rez, /usr/bin/SetFile).
+
+After cloning, run:
 
 ```sh
 sh tools/mac-forks/install.sh
 ```
 
-to materialize the real, Symantec C++-usable project and resource files.
+to materialize the real, Symantec C++-usable project and resource files. You can them drop them into an emulator's disk image
+(I love `hfsutils` for this) and build with Symantec C++.
