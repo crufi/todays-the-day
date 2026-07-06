@@ -1,2 +1,7 @@
 *.hqx -text
 *.r -text
+*.c filter=maceol -text
+*.h filter=maceol -text
+*.cp filter=maceol -text
+*.cpp filter=maceol -text
+*.hpp filter=maceol -text
