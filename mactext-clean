@@ -1,0 +1,40 @@
+#!/bin/sh
+# Git "clean" filter (worktree -> blob) for classic Mac OS text.
+#
+# Config (see install.sh):
+#   filter.mactext.clean = tools/mac-forks/mactext-clean
+#
+# Classic Mac OS text has two properties that trip up modern git
+# tooling:
+#
+#   1. Lines are separated by a bare CR (0x0D), no LF at all. Git's own
+#      line-ending machinery (core.autocrlf, text=auto, eol=...) only
+#      knows LF and CRLF, so it can't help -- and neither GitHub's web
+#      viewer nor a normal git diff treats a lone CR as a line break;
+#      the file just renders as one giant line.
+#
+#   2. It's encoded as Mac OS Roman, not UTF-8 -- so anything above
+#      ASCII (curly quotes, em dashes, accented letters, (c)) is a
+#      *different character* if read back as UTF-8 or Latin-1. E.g.
+#      byte 0xD4 is a left curly quote in Mac Roman but renders as "Ô"
+#      if a modern tool (GitHub included) reads it as Latin-1/UTF-8.
+#
+# Fixing only the line endings while leaving Mac Roman bytes in place
+# doesn't actually solve the GitHub-rendering problem -- so both are
+# converted together here. Git only allows one `filter=` per path, so
+# this has to be a single combined filter rather than two independent
+# ones.
+#
+# No forks or races to worry about (unlike machex/macderez) -- this is
+# a plain stdin/stdout content transform, so it doesn't need %f at
+# all. mactext-smudge reverses both conversions on checkout, so the
+# working copy still has Mac Roman, CR-only text, as a vintage
+# IDE/toolchain expects.
+#
+# LC_ALL=C for the tr step: these files are full of high-bit bytes,
+# and `tr` under a UTF-8 locale treats those as invalid multi-byte
+# sequences and errors with "Illegal byte sequence." iconv is told its
+# encodings explicitly and doesn't need this, but it's harmless to set
+# for the whole pipeline.
+export LC_ALL=C
+iconv -f MACINTOSH -t UTF-8 | tr '\r' '\n'
