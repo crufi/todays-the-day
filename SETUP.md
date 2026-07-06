@@ -1,10 +1,10 @@
 # Setting Up a New Vintage Mac Git Repo
 
 Quick checklist for starting a fresh git repo around a classic Mac project
-(THINK C / Symantec C++ / CodeWarrior / MPW era), using
+(THINK C/Symantec C++/CodeWarrior/MPW era), using
 [mac-forks](https://github.com/crufi/mac-forks) for resource forks and its
 `mactext` filter for Mac Roman, CR-only text. See the [README](README.md) for
-the *why*; this is just the *how*.
+more details; this file is just a how-to.
 
 macOS + Xcode Command Line Tools only (`xcode-select --install`) — that's
 where `binhex`/`DeRez`/`Rez`/`SetFile` come from.
@@ -48,10 +48,9 @@ Add more `filter=mactext -text` lines for whatever else your project has —
 `.p`/`.pas` (Pascal), `.a`/`.asm`, etc.
 
 ⚠️ **Naming collision to watch for:** mac-forks generates `.r` sidecars for
-resource-only files (`Foo.rsrc` → `Foo.rsrc.r`). If your project *also* has
-genuine hand-written Rez source ending in `.r`, don't add `filter=mactext` to
-those — `-text` alone is enough, and you don't want mac-forks' own
-DeRez-generated sidecars mistaken for hand-written Rez source or vice versa.
+resource-only files (`Foo.rsrc` → `Foo.rsrc.r`). If your project also has
+genuine hand-written Rez source ending in `.r`, **rename them** (`.rez` or
+similar instead of `.r`) before using mac-forks.
 
 ## 4. Normal `.gitignore` stuff
 
@@ -66,7 +65,10 @@ still want the usual:
 ## 5. Add your files, commit
 
 Edit everything normally — including the real `.π`/`.rsrc` files directly in
-ResEdit/the IDE. The `pre-commit` hook finds anything with a resource fork
+ResEdit/the IDE. (`hfsutils` provides a great way to get vintage Mac files in/out
+of an emulator disk image.) 
+
+The `pre-commit` hook finds anything with a resource fork
 and encodes it automatically; you never `git add` those files yourself.
 
 ```sh
@@ -76,9 +78,8 @@ git commit -m "Initial commit"
 
 ## 6. Verify with a genuinely fresh clone
 
-Problems in this kind of setup mostly only show up on a *real* fresh clone —
-an already-configured working copy hides plenty (this bit us more than once
-while building it). Before trusting it:
+Problems in this kind of setup mostly only show up on a fresh clone —
+an already-configured working copy hides plenty. Before trusting it:
 
 ```sh
 cd /tmp && git clone /path/to/your/repo verify-me && cd verify-me
