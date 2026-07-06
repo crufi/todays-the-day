@@ -41,6 +41,15 @@ git config filter.maceol.required true
 
 echo "mac-forks hooks + filters installed for $root"
 
+# Filter config only affects *future* checkouts. If this clone was
+# checked out before maceol was configured, its filtered files are
+# still sitting there un-smudged (LF instead of CR) -- force a
+# re-checkout of everything from HEAD so the smudge filter actually
+# runs now. Safe and a no-op for anything maceol doesn't apply to:
+# clean-filtering already-LF or otherwise-unfiltered content changes
+# nothing.
+git -C "$root" checkout HEAD -- .
+
 echo "materializing real files from their .hqx/.r sidecars..."
 "$root/tools/mac-forks/import.sh"
 
