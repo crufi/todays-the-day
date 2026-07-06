@@ -1,6 +1,6 @@
 //==================================================================================
 // CrutchUtilities.c
-// ©2024 Steve Crutchfield
+// ¬©2024 Steve Crutchfield
 //
 // A handy library of utilities for INITs, patches, and applications.
 // Depends on the lower-level routines in CrutchError.c.
@@ -42,7 +42,7 @@ short EllipsifyString(const short leftEdge, const short rightEdge, Str255 s)
 	short w;
 	
 	while (leftEdge + (w = StringWidth(s)) > rightEdge && s[0] > 2)
-		s[--s[0]] = '…';  // truncate final 2 chars, add ellipsis
+		s[--s[0]] = '‚Ä¶';  // truncate final 2 chars, add ellipsis
 	
 	return w;
 }
@@ -912,7 +912,7 @@ void InitManagers(ProcPtr resumeProc)
 // ========== Hide/ShowMenuBar
 
 // These are simple versions from Knaster, Macintosh Programming Secrets (2e0,
-// p. 492ff.  I did much more elaborate versions for Exposé, see that code for details.
+// p. 492ff.  I did much more elaborate versions for Expos√©, see that code for details.
 
 void HideMenuBar(HideMenuBarData *data, Boolean allowClicks)
 // data:  a pointer to a place to store things we should remember,

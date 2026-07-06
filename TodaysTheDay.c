@@ -1,6 +1,6 @@
 //==================================================================================
 // Today's the Day
-// ©2023 Steve Crutchfield
+// Â©2023 Steve Crutchfield
 // -----------------------
 // 
 // Patches DrawString in the Finder to draw "Today" or "Yesterday" (localizable in
@@ -27,7 +27,7 @@
 #include <SetupA4.h>
 #include <Packages.h>
 
-#include "::CrutchUtilities Ä:CrutchUtilities.h"
+#include "::CrutchUtilities Æ’:CrutchUtilities.h"
 
 #define GOOD_INIT_ICON 128
 

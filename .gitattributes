@@ -1,7 +1,7 @@
 *.hqx -text
 *.r -text
-*.c filter=maceol -text
-*.h filter=maceol -text
-*.cp filter=maceol -text
-*.cpp filter=maceol -text
-*.hpp filter=maceol -text
+*.c filter=mactext -text
+*.h filter=mactext -text
+*.cp filter=mactext -text
+*.cpp filter=mactext -text
+*.hpp filter=mactext -text

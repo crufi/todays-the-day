@@ -1,6 +1,6 @@
 //==================================================================================
 // CrutchError.c
-// ©2023 Steve Crutchfield
+// ¬©2023 Steve Crutchfield
 //
 // Low-level error handling routines to pop up a dialog box, do string wrangling
 // with Sprintf(), etc.  Separated here because the error handling routines (Assert
@@ -215,7 +215,7 @@ static void _PopUpDialogOnTheFly(ConstStr255Param mesgStr, short iconID, Boolean
 
 	// creating a DITL on the fly:
 	// I just created the DITL I wanted in ResEdit and copied/pasted the hex here
-	// (this obviously wastes ≈50 bytes vs. sticking the hex into a char array but 
+	// (this obviously wastes ‚âà50 bytes vs. sticking the hex into a char array but 
 	// is just way easier to change with a simple copy/paste from ResEdit)
 
 	const unsigned char null = 0;
@@ -355,7 +355,7 @@ void Complain(ConstStr255Param errorStr)
 // Can't call Sprintf, Complain, etc. -- they call us!
 {
 	Str255 s;
-	INLINE_PSTRING(prefix, APP_NAME " had a problem—sorry:\r\r");
+	INLINE_PSTRING(prefix, APP_NAME " had a problem‚Äîsorry:\r\r");
 	CopyStr(prefix, s);
 	AppendStr(s, errorStr);
 	_MessageBox(s, stopIcon, true);
@@ -412,7 +412,7 @@ void _Error(long errCode, const char *errStr, const char *file, long line, Boole
 void ComplainInliningIsOff(void)
 // used to complain if we can't SetUpA4 from C++ -- must do from C so we can have an inline string
 {
-	INLINE_PSTRING(s, "recompile with “use function calls for inlines” off");
+	INLINE_PSTRING(s, "recompile with ‚Äúuse function calls for inlines‚Äù off");
 	Complain(s);
 }
 
@@ -823,7 +823,7 @@ Handle GetHandleToThisMultiSegmentCodeResource(void)
 // are we running in a multi-segment code resource?  if so, return a handle to it
 // it, maybe for the caller to lock?
 //
-// tested, but not currently using anywhere -- but might be handy in Exposé cdev
+// tested, but not currently using anywhere -- but might be handy in Expos√© cdev
 //
 //***TODO isn't this WRONG?  won't A4 always point to the MAIN segment, not 'this'
 // segment?

@@ -1,6 +1,6 @@
 //==================================================================================
 // CrutchError.h
-// ©2024 Steve Crutchfield
+// Â©2024 Steve Crutchfield
 //
 // Low-level error handling routines to pop up a dialog box, do string wrangling
 // with Sprintf(), etc.  Separated here because the error handling routines (Assert
@@ -100,7 +100,7 @@ typedef Boolean bool;
 //		(for non-applications or if not in front)
 //
 // Complain(pStr) pops up a dialog-on-the-fly (no resource needed!) to display the message
-//		    APP_NAME (a C string) " had a problemÑsorry: " pStr
+//		    APP_NAME (a C string) " had a problemâ€”sorry: " pStr
 //      if an application in front, else does Notify(pStr)
 //      then returns.
 //		(recommended usage:  put '#define APP_NAME "..."' in the project prefix)
@@ -175,26 +175,26 @@ void SetA0(void *) = { NOP };  // A0 has been set to parameter already, we're do
 
 #define Check(expr)           														\
 	(_SetD0(expr) == noErr															\
-		|| (_Error(_GetD0(), "when checking Ô" #expr "Õ", __FILE__, __LINE__, false), false))
+		|| (_Error(_GetD0(), "when checking â€˜" #expr "â€™", __FILE__, __LINE__, false), false))
 
 #define CheckFatal(expr)           													\
 	(_SetD0(expr) == noErr															\
-		|| (_Error(_GetD0(), "when checking Ô" #expr "Õ", __FILE__, __LINE__, true), false))
+		|| (_Error(_GetD0(), "when checking â€˜" #expr "â€™", __FILE__, __LINE__, true), false))
 
 #define CheckMesg(expr, s)           												\
 	(_SetD0(expr) == noErr															\
-		|| (_Error(_GetD0(), "when checking Ô" #expr "ÕÑ" s, __FILE__, __LINE__, false), false))
+		|| (_Error(_GetD0(), "when checking â€˜" #expr "â€™â€”" s, __FILE__, __LINE__, false), false))
 
 #define CheckMesgFatal(expr, s)           											\
 	(_SetD0(expr) == noErr															\
-		|| (_Error(_GetD0(), "when checking Ô" #expr "ÕÑ" s, __FILE__, __LINE__, true), false))
+		|| (_Error(_GetD0(), "when checking â€˜" #expr "â€™â€”" s, __FILE__, __LINE__, true), false))
 
 #define CheckReturn(expr, valueToReturnOnFail)										\
 	do { 																			\
 		const long x = expr;														\
 		if (x != noErr) 															\
 		{ 																			\
-			_Error(x,  "when checking Ô" #expr "Õ", __FILE__, __LINE__, false); 	\
+			_Error(x,  "when checking â€˜" #expr "â€™", __FILE__, __LINE__, false); 	\
 			return valueToReturnOnFail;												\
 		} 																			\
 	} while (0)
@@ -204,7 +204,7 @@ void SetA0(void *) = { NOP };  // A0 has been set to parameter already, we're do
 		const long x = expr;														\
 		if (x != noErr) 															\
 		{ 																			\
-			_Error(x, "when checking Ô" #expr "ÕÑ" s, __FILE__, __LINE__, false); 	\
+			_Error(x, "when checking â€˜" #expr "â€™â€”" s, __FILE__, __LINE__, false); 	\
 			return valueToReturnOnFail;												\
 		} 																			\
 	} while (0)
@@ -216,7 +216,7 @@ void SetA0(void *) = { NOP };  // A0 has been set to parameter already, we're do
 		const long x = expr;														\
 		if (x != noErr) 															\
 		{ 																			\
-			_Error(x,  "when checking Ô" #expr "Õ", __FILE__, __LINE__, false); 	\
+			_Error(x,  "when checking â€˜" #expr "â€™", __FILE__, __LINE__, false); 	\
 			return;																	\
 		} 																			\
 	} while (0)
@@ -226,7 +226,7 @@ void SetA0(void *) = { NOP };  // A0 has been set to parameter already, we're do
 		const long x = expr;														\
 		if (x != noErr) 															\
 		{ 																			\
-			_Error(x, "when checking Ô" #expr "ÕÑ" s, __FILE__, __LINE__, false); 	\
+			_Error(x, "when checking â€˜" #expr "â€™â€”" s, __FILE__, __LINE__, false); 	\
 			return;																	\
 		} 																			\
 	} while (0)

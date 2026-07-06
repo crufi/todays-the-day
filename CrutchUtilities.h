@@ -1,6 +1,6 @@
 //==================================================================================
 // CrutchUtilities.h
-// ©2024 Steve Crutchfield
+// Â©2024 Steve Crutchfield
 //
 // A handy library of utilities for INITs, patches, and applications.
 // Depends on the lower-level routines in CrutchError.c.
@@ -235,7 +235,7 @@ void FIFO_Dispose(FIFO *q);
 //
 // This is NOT the same as the "origin" of the local coordinate system relative to the
 // topLeft of the portRect (that origin is of course just the topLeft of the portRect,
-// and is set by SetOrigin«).
+// and is set by SetOriginÂ´).
 //
 // NOTE - not usable at interrupt time because GET_GRAFPORT_BITORPIXMAP isn't
 #define GET_GLOBAL_COORD_OFFSET(g) topLeft(GET_GRAFPORT_BITORPIXMAP(g).bounds)
