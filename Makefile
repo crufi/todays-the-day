@@ -15,8 +15,8 @@
 # SCSI-style device image (same shape as System71.hda etc.), which
 # gets attached via the workspace's own scsi_targets JSON -- the same
 # edit Snow itself makes when you attach a disk through the GUI and
-# save, just automated (tools/snow/attach-disk.py) so it can happen
-# from the command line.
+# save, just automated (tools/mac-forks/snow-attach-disk.py) so it
+# can happen from the command line.
 #
 # The generated workspace has to live in $(SNOW_PATH), not this
 # project's build/ -- confirmed ("Failed to load workspace: No such
@@ -59,8 +59,8 @@ $(HFS_IMAGE): tools/mac-forks/import.sh
 $(DEVICE_IMAGE): $(HFS_IMAGE)
 	djjr convert to-device $(HFS_IMAGE) $@
 
-$(WORKSPACE): $(DEVICE_IMAGE) tools/snow/attach-disk.py
-	python3 tools/snow/attach-disk.py $(SNOW_WORKSPACE) $(DEVICE_IMAGE) $@
+$(WORKSPACE): $(DEVICE_IMAGE) tools/mac-forks/snow-attach-disk.py
+	python3 tools/mac-forks/snow-attach-disk.py $(SNOW_WORKSPACE) $(DEVICE_IMAGE) $@
 
 run: $(WORKSPACE)
 	$(SNOW) --fullscreen $(WORKSPACE) &
