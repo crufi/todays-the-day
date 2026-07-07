@@ -30,49 +30,60 @@ for hook in pre-commit post-checkout post-merge; do
     ln -sf "../../tools/mac-forks/hooks/$hook" "$root/.git/hooks/$hook"
 done
 
-# mactext has no forks/races to worry about, so it's a plain git
-# filter rather than a hook -- but the filter *driver* still has to be
-# configured locally, same reasoning as the machex/macderez filters
-# used to need (see this project's git history for why that approach
-# was abandoned for resource forks specifically: git's own checkout
-# can't be raced safely). Text-only content has no such problem.
+# mactext and macroman have no forks/races to worry about, so they're
+# plain git filters rather than hooks -- but the filter *driver* still
+# has to be configured locally, same reasoning as the machex/macderez
+# filters used to need (see this project's git history for why that
+# approach was abandoned for resource forks specifically: git's own
+# checkout can't be raced safely). Text-only content has no such problem.
 git config filter.mactext.clean  "$root/tools/mac-forks/mactext-clean"
 git config filter.mactext.smudge "$root/tools/mac-forks/mactext-smudge"
 git config filter.mactext.required true
 
+git config filter.macroman.clean  "$root/tools/mac-forks/macroman-clean"
+git config filter.macroman.smudge "$root/tools/mac-forks/macroman-smudge"
+git config filter.macroman.required true
+
 echo "mac-forks hooks + filters installed for $root"
 
 # Filter config only affects *future* checkouts. If this clone was
-# checked out before mactext was configured, its filtered files are
-# still sitting there un-smudged (UTF-8/LF instead of Mac Roman/CR). A
-# plain `git checkout HEAD -- .` doesn't fix this: git compares the
-# clean-filtered worktree content against the stored blob first, and
-# since an already-clean file cleans to itself, git thinks nothing
-# changed and skips re-invoking smudge entirely. So instead, delete
-# and re-checkout specifically the files mactext applies to -- with
-# nothing on disk, git has no "already matches" shortcut to take, and
-# smudge is forced to actually run.
-mactext_paths=$(mktemp)
-trap 'rm -f "$mactext_paths"' EXIT
-git -C "$root" ls-files | while IFS= read -r f; do
-    attr=$(git -C "$root" check-attr filter -- "$f" | awk -F': ' '{print $NF}')
-    if [ "$attr" = mactext ]; then
-        printf '%s\n' "$f"
+# checked out before a filter was configured, its filtered files are
+# still sitting there un-smudged. A plain `git checkout HEAD -- .`
+# doesn't fix this: git compares the clean-filtered worktree content
+# against the stored blob first, and since an already-clean file
+# cleans to itself, git thinks nothing changed and skips re-invoking
+# smudge entirely. So instead, delete and re-checkout specifically the
+# files each filter applies to -- with nothing on disk, git has no
+# "already matches" shortcut to take, and smudge is forced to actually
+# run.
+force_resmudge() {
+    filter_name=$1
+    label=$2
+    paths=$(mktemp)
+    git -C "$root" -c core.quotePath=false ls-files | while IFS= read -r f; do
+        attr=$(git -C "$root" check-attr filter -- "$f" | awk -F': ' '{print $NF}')
+        if [ "$attr" = "$filter_name" ]; then
+            printf '%s\n' "$f"
+        fi
+        true
+    done >"$paths"
+    if [ -s "$paths" ]; then
+        # These filters can't announce themselves the way import.sh's
+        # binhex/derez conversions do -- their stdout as a git filter
+        # *is* the file content git writes, so a status line there
+        # would corrupt the file. This is the only place that can say
+        # it happened.
+        echo "$label:"
+        sed 's/^/  /' "$paths"
+        while IFS= read -r f; do
+            rm -f "$root/$f"
+        done <"$paths"
+        xargs git -C "$root" checkout HEAD -- <"$paths"
     fi
-    true
-done >"$mactext_paths"
-if [ -s "$mactext_paths" ]; then
-    # mactext-smudge can't announce itself the way import.sh's binhex/
-    # derez conversions do -- its stdout as a git filter *is* the file
-    # content git writes, so printing a status line there would
-    # corrupt the file. This is the only place that can say it happened.
-    echo "converting to Mac Roman / CR line endings:"
-    sed 's/^/  /' "$mactext_paths"
-    while IFS= read -r f; do
-        rm -f "$root/$f"
-    done <"$mactext_paths"
-    xargs git -C "$root" checkout HEAD -- <"$mactext_paths"
-fi
+    rm -f "$paths"
+}
+force_resmudge mactext "converting to Mac Roman / CR line endings"
+force_resmudge macroman "converting to Mac Roman"
 
 echo "materializing real files from their .hqx/.r sidecars..."
 "$root/tools/mac-forks/import.sh"

@@ -86,6 +86,31 @@ your own `.gitattributes` (see [SETUP.md](SETUP.md)):
 *.h filter=mactext -text
 ```
 
+### `macroman` — the encoding half alone, for `.r` sidecars
+
+`export.sh`'s own DeRez-generated `.r` sidecars need the Mac-Roman-encoding
+fix too — DeRez's hex-dump comments embed raw bytes straight from the
+resource fork, and for text-bearing resources (`STR#`, `vers`, an owner-name
+resource, etc.) those bytes are genuine Mac Roman prose that renders wrong on
+GitHub, the same as any other Mac Roman byte would.
+
+But they do **not** need (and must not get) the CR↔LF half: DeRez always
+emits LF-terminated output on this machine, right now — it's a live tool's
+output, not a persisted vintage file, so there's no CR convention to
+preserve. Running `mactext` on a `.r` sidecar would wrongly inject CR line
+endings into it and break `import.sh`'s own `head -n 1` parsing of its
+leading type/creator comment (which assumes LF). Confirmed empirically: an
+encoding-only round trip matches byte-for-byte; adding CR↔LF conversion
+turned the whole file into a single line.
+
+So `.r` sidecars get their own filter, `macroman`, which is exactly
+`mactext-clean`/`-smudge` minus the `tr` step — Mac Roman ↔ UTF-8 only,
+line endings untouched:
+
+```
+*.r filter=macroman -text
+```
+
 ## Requirements
 
 macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
