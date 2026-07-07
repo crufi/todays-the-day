@@ -78,6 +78,30 @@ it's a plain stdin/stdout content transform (`iconv` + `tr`), so it's wired
 as an ordinary git filter rather than a hook. (`iconv`/`tr` ship with base
 macOS, no Xcode Command Line Tools required for this part specifically.)
 
+`mactext-clean` also captures the file's current Finder type/creator, if it
+has one, as a human-readable leading comment:
+
+```
+/* auto-generated (do not modify): type=TEXT creator=KAHL hex=544558544B41484C... */
+```
+
+Where that ever comes from: these files don't normally carry Finder info at
+all (most editors don't preserve xattrs) -- but the *first* time one is
+checked in, it's expected to have been pulled straight off a real vintage
+volume (e.g. via `hcopy`), which is exactly when it'd have a meaningful
+type/creator to capture. Once captured, it's carried forward automatically:
+if a later commit has no live Finder info (the common case), the previous
+value already in the comment is preserved rather than silently dropped.
+
+Restoring it on checkout does **not** happen inside `mactext-smudge` --
+same reasoning as the resource-fork tools: a smudge filter's stdout *is* the
+file content git writes, so it can't safely side-effect the same path's
+Finder info too. Instead `import.sh` does it as a separate pass, once git has
+already checked the file out, reading the marker from the tracked blob
+(always LF, guaranteed by `mactext-clean`) rather than the working-tree copy
+(which is genuinely CR-only after smudge, so ordinary `head`/`sed` can't
+pull "just the first line" back out of it).
+
 Add it to whichever extensions your project's classic Mac source uses, in
 your own `.gitattributes` (see [SETUP.md](SETUP.md)):
 

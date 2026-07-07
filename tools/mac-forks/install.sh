@@ -36,7 +36,7 @@ done
 # filters used to need (see this project's git history for why that
 # approach was abandoned for resource forks specifically: git's own
 # checkout can't be raced safely). Text-only content has no such problem.
-git config filter.mactext.clean  "$root/tools/mac-forks/mactext-clean"
+git config filter.mactext.clean  "$root/tools/mac-forks/mactext-clean %f"
 git config filter.mactext.smudge "$root/tools/mac-forks/mactext-smudge"
 git config filter.mactext.required true
 
