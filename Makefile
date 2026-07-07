@@ -1,5 +1,6 @@
-# Builds a floppy image of this project's files and launches Snow with
-# it attached, ready to open in Symantec C++.
+# Builds this project's source onto a disk image and launches Snow
+# with it attached as an extra SCSI disk, ready to open in Symantec
+# C++.
 #
 # All the actual work -- discovering which files to include, bridging
 # real resource forks through MacBinary, stamping type/creator -- lives
@@ -7,16 +8,15 @@
 # discovery mac-forks already uses elsewhere. Nothing here is
 # project-specific except where Snow lives and which workspace to boot.
 #
-# Snow's floppy image support (--floppy=) doesn't recognize a plain HFS
-# image the way real hardware's floppy driver would -- confirmed this
-# doesn't boot/mount. What does work: djjr convert to-device turns it
-# into a partitioned SCSI-style image (same shape as System71.hda etc.),
-# and Snow has no CLI flag to attach an extra SCSI disk at launch either
-# -- but that's just an edit to the workspace's own JSON (scsi_targets),
-# the same edit Snow itself makes when you attach a disk via its GUI and
-# save. tools/snow/attach-disk.py automates that: copies your workspace,
-# adds the built disk in the first empty slot, writes the result to
-# build/ without touching your own workspace file.
+# build-floppy.sh's native output is a plain HFS image in floppy
+# format -- a real, valid floppy image, just one Snow's own --floppy
+# doesn't recognize (confirmed: doesn't boot/mount). So it's only an
+# intermediate step here: djjr converts it into a partitioned
+# SCSI-style device image (same shape as System71.hda etc.), which
+# gets attached via the workspace's own scsi_targets JSON -- the same
+# edit Snow itself makes when you attach a disk through the GUI and
+# save, just automated (tools/snow/attach-disk.py) so it can happen
+# from the command line.
 #
 # Requires (on top of mac-forks' own requirements): djjr
 #   curl -L -o /tmp/djjr.pkg https://diskjockey.onegeekarmy.eu/files/djjr/djjr-2.1.0.pkg && installer -pkg /tmp/djjr.pkg -target CurrentUserHomeDirectory
@@ -27,23 +27,23 @@ SNOW           := $(SNOW_PATH)/Snow.app/Contents/MacOS/Snow
 SNOW_WORKSPACE ?= $(SNOW_PATH)/iix.snoww   # <-- point this at your own workspace
 
 BUILD_DIR     := build
-FLOPPY_IMAGE  := $(BUILD_DIR)/out.img
-DEVICE_IMAGE  := $(BUILD_DIR)/out.hda
-WORKSPACE     := $(BUILD_DIR)/out.snoww
-FLOPPY_BLOCKS := 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
-FLOPPY_LABEL  := Source
+HFS_IMAGE     := $(BUILD_DIR)/source.img     # plain HFS, floppy format -- build-floppy.sh's native output
+DEVICE_IMAGE  := $(BUILD_DIR)/source.hda     # same content, converted to a SCSI-attachable device
+WORKSPACE     := $(BUILD_DIR)/source.snoww   # copy of SNOW_WORKSPACE with DEVICE_IMAGE attached
+VOLUME_BLOCKS := 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
+VOLUME_LABEL  := Source
 TEXT_CREATOR  := KAHL   # Symantec/THINK C, so double-click opens source in the IDE
 
 .PHONY: all run clean
 
-all: $(FLOPPY_IMAGE)
+all: $(HFS_IMAGE)
 
-$(FLOPPY_IMAGE): tools/mac-forks/import.sh
+$(HFS_IMAGE): tools/mac-forks/import.sh
 	sh tools/mac-forks/import.sh
-	sh tools/mac-forks/build-floppy.sh $@ $(FLOPPY_BLOCKS) $(FLOPPY_LABEL) $(TEXT_CREATOR)
+	sh tools/mac-forks/build-floppy.sh $@ $(VOLUME_BLOCKS) $(VOLUME_LABEL) $(TEXT_CREATOR)
 
-$(DEVICE_IMAGE): $(FLOPPY_IMAGE)
-	djjr convert to-device $(FLOPPY_IMAGE) $@
+$(DEVICE_IMAGE): $(HFS_IMAGE)
+	djjr convert to-device $(HFS_IMAGE) $@
 
 $(WORKSPACE): $(DEVICE_IMAGE) tools/snow/attach-disk.py
 	python3 tools/snow/attach-disk.py $(SNOW_WORKSPACE) $(DEVICE_IMAGE) $@
