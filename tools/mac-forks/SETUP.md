@@ -68,8 +68,9 @@ still want the usual:
 ## 5. Add your files, commit
 
 Edit everything normally — including the real `.π`/`.rsrc` files directly in
-ResEdit/the IDE. (`hfsutils` provides a great way to get vintage Mac files in/out
-of an emulator disk image.) 
+ResEdit/the IDE. (For getting files in/out of an emulator disk image at all,
+`hfsutils` is the tool underneath this repo's own `build-floppy.sh` — see
+step 8 below if you want that automated rather than doing it by hand.)
 
 The `pre-commit` hook finds anything with a resource fork
 and encodes it automatically; you never `git add` those files yourself.
@@ -93,3 +94,19 @@ sh tools/mac-forks/install.sh
 ## 7. Push
 
 Wherever you like (GitHub, etc.) — nothing here is remote-specific.
+
+## 8. (Optional) Build + launch in an emulator
+
+Not part of getting git tracking working — a separate, optional layer for
+actually opening the project somewhere. See the [README](README.md) for the
+full walkthrough (`build-floppy.sh`, `snow-attach-disk.py`, and `snow.mk`
+sections); the short version, if you use Snow:
+
+```makefile
+SNOW_WORKSPACE ?= $(HOME)/Snow/your-workspace.snoww
+TEXT_CREATOR   := KAHL   # or whatever your toolchain's creator code is
+
+include tools/mac-forks/snow.mk
+```
+
+then `make run`.
