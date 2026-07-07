@@ -27,7 +27,7 @@
 #include <SetupA4.h>
 #include <Packages.h>
 
-#include "::CrutchUtilities ƒ:CrutchUtilities.h"
+#include "CrutchUtilities.h"
 
 #define GOOD_INIT_ICON 128
 
