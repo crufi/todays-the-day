@@ -199,6 +199,28 @@ not the plain HFS image `build-floppy.sh` produces directly -- convert with
 [djjr](https://diskjockey.onegeekarmy.eu/) first: `djjr convert to-device
 in.img out.hda`.
 
+### Wiring it all together for Snow (`snow.mk`)
+
+`build-floppy.sh`, `djjr convert to-device`, and `snow-attach-disk.py`
+chained together is the whole recipe for "open this project in Snow" --
+and that chain is identical across every project that uses it, so it lives
+in one shared `snow.mk` rather than getting hand-copied into each
+project's own Makefile. Include it and set the two things that actually
+vary per project:
+
+```makefile
+SNOW_WORKSPACE ?= $(HOME)/Snow/your-workspace.snoww   # required, no default
+TEXT_CREATOR   := KAHL                                 # required -- your toolchain's creator code
+
+include tools/mac-forks/snow.mk
+```
+
+Gives you `make` (builds the disk image), `make run` (builds, then
+launches Snow with it attached), and `make clean`. `SNOW_PATH`,
+`VOLUME_BLOCKS`, `VOLUME_LABEL`, and `BUILD_DIR` all have reasonable
+defaults (see the top of `snow.mk`) but can be overridden the same way,
+set before the `include` line.
+
 ## Requirements
 
 macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
