@@ -18,6 +18,16 @@
 # save, just automated (tools/snow/attach-disk.py) so it can happen
 # from the command line.
 #
+# The generated workspace has to live in $(SNOW_PATH), not this
+# project's build/ -- confirmed ("Failed to load workspace: No such
+# file or directory"): the template's OTHER entries (ROM, PRAM,
+# disk1-3.hda) are bare relative filenames, and Snow resolves those
+# relative to wherever the workspace file itself sits. Moving the file
+# out of $(SNOW_PATH) breaks every one of those; only the newly added
+# disk gets (and needs) an absolute path, since it genuinely lives
+# elsewhere. It's a small generated glue file, not a copy of anything
+# real -- same idea as iix.snoww/Mac IIx.snoww already sitting there.
+#
 # Requires (on top of mac-forks' own requirements): djjr
 #   curl -L -o /tmp/djjr.pkg https://diskjockey.onegeekarmy.eu/files/djjr/djjr-2.1.0.pkg && installer -pkg /tmp/djjr.pkg -target CurrentUserHomeDirectory
 #   (or: sudo port install djjr)
@@ -29,10 +39,14 @@ SNOW_WORKSPACE ?= $(SNOW_PATH)/iix.snoww   # <-- point this at your own workspac
 BUILD_DIR     := build
 HFS_IMAGE     := $(BUILD_DIR)/source.img     # plain HFS, floppy format -- build-floppy.sh's native output
 DEVICE_IMAGE  := $(BUILD_DIR)/source.hda     # same content, converted to a SCSI-attachable device
-WORKSPACE     := $(BUILD_DIR)/source.snoww   # copy of SNOW_WORKSPACE with DEVICE_IMAGE attached
 VOLUME_BLOCKS := 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
 VOLUME_LABEL  := Source
 TEXT_CREATOR  := KAHL   # Symantec/THINK C, so double-click opens source in the IDE
+
+# Must live in $(SNOW_PATH) itself, not build/ -- see the note above.
+# Named after this directory so it can't collide with another
+# project's generated workspace if this Makefile gets reused elsewhere.
+WORKSPACE := $(SNOW_PATH)/$(notdir $(CURDIR)).snoww
 
 .PHONY: all run clean
 
@@ -53,3 +67,4 @@ run: $(WORKSPACE)
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f $(WORKSPACE)
