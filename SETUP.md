@@ -3,8 +3,8 @@
 Quick checklist for starting a fresh git repo around a classic Mac project
 (THINK C/Symantec C++/CodeWarrior/MPW era), using
 [mac-forks](https://github.com/crufi/mac-forks) for resource forks and its
-`mactext` filter for Mac Roman, CR-only text. See the [README](README.md) for
-more details; this file is just a how-to.
+`mactext`/`macroman` filters for Mac Roman text. See the [README](README.md)
+for more details; this file is just a how-to.
 
 macOS + Xcode Command Line Tools only (`xcode-select --install`) — that's
 where `binhex`/`DeRez`/`Rez`/`SetFile` come from.
@@ -24,18 +24,21 @@ sh tools/mac-forks/install.sh
 ```
 
 `install.sh` checks for the required tools, symlinks the `pre-commit` /
-`post-checkout` / `post-merge` hooks, and configures the `mactext` filter.
-**Every clone needs to run this once** — hooks and filter config live in
-`.git/`, which `git clone` never populates.
+`post-checkout` / `post-merge` hooks, and configures the `mactext`/`macroman`
+filters. **Every clone needs to run this once** — hooks and filter config
+live in `.git/`, which `git clone` never populates.
 
 ## 3. Add `.gitattributes`
 
 Not shipped by mac-forks itself — every project's extensions differ, so this
-lives in your own repo, one pattern per line:
+lives in your own repo, one pattern per line. `*.r` gets `macroman`
+(encoding only — these are mac-forks' own generated sidecars, always
+LF-native, never CR); your actual vintage source gets `mactext` (encoding
+*and* CR↔LF, since those files are genuinely CR-authored):
 
 ```
 *.hqx -text
-*.r -text
+*.r filter=macroman -text
 
 *.c filter=mactext -text
 *.h filter=mactext -text
