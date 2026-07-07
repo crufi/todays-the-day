@@ -135,6 +135,41 @@ line endings untouched:
 *.r filter=macroman -text
 ```
 
+## Building a floppy image (`build-floppy.sh`)
+
+For loading a project into an emulator (Snow, Mini vMac, Basilisk II,
+whatever): `build-floppy.sh` builds a plain HFS floppy image (no partition
+map -- real floppies never had one) containing every file mac-forks tracks
+for the project, with no per-project file list. It finds them the same way
+`export.sh`/`import.sh` do: tracked `.hqx`/`.r` sidecars name the real,
+materialized forked files, and `filter=mactext` names the real text files.
+
+```sh
+tools/mac-forks/build-floppy.sh out.img [blocks] [label] [text_creator]
+```
+
+- `blocks` -- 512-byte blocks, default 8192 (4MB). Real floppies topped out
+  at 1.44MB; most emulators are lenient about `--floppy`-style attached
+  images being larger, but that's emulator-specific -- worth confirming
+  yours actually accepts it.
+- `text_creator` -- stamped onto text files via `hattrib` so an IDE
+  recognizes/double-click-opens them (e.g. `KAHL` for Symantec/THINK C).
+  Left unset, text files still get the correct `TEXT` type (from `hcopy`'s
+  own auto-detection) but a generic creator.
+
+`.π`/`.rsrc`-style files carry a real resource fork, and `hcopy` has no idea
+macOS files can have one at all -- it silently reads only the (usually
+empty) data fork and produces a zero-byte, type-`????` file. So this bridges
+through MacBinary first (`macbinary encode`, both forks + type/creator in
+one blob), then `hcopy -m` to decode it properly onto the volume. Confirmed
+empirically: `hcopy -m` directly on a real macOS file with a resource fork
+fails outright ("error reading MacBinary file header"); going through this
+bridge round-trips exactly.
+
+Requires `hfsutils` (`brew install hfsutils`) and `macbinary` (ships with
+base macOS) -- checked by the script itself, not `install.sh`, since most
+mac-forks consumers never need this.
+
 ## Requirements
 
 macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
