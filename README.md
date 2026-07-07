@@ -170,6 +170,35 @@ Requires `hfsutils` (`brew install hfsutils`) and `macbinary` (ships with
 base macOS) -- checked by the script itself, not `install.sh`, since most
 mac-forks consumers never need this.
 
+## Attaching a disk in Snow (`snow-attach-disk.py`)
+
+For Snow specifically (a Mac II-class emulator): its `--floppy` doesn't
+recognize a plain HFS image the way real floppy hardware would (confirmed:
+doesn't boot/mount), and attaching a SCSI/HDD-style device image has no CLI
+flag at all -- but that's just an edit to the workspace's own JSON
+(`scsi_targets`), the same edit Snow itself makes when you attach a disk
+through the GUI and save.
+
+```sh
+tools/mac-forks/snow-attach-disk.py <template.snoww> <disk.hda> <output.snoww>
+```
+
+Copies `template.snoww`, adding `disk.hda` as an additional SCSI target in
+the first empty slot, writing the result to `output.snoww`. Touches only
+that one new entry -- every other field (ROM, PRAM, existing disks) is left
+exactly as the template has it, which matters: those are typically bare
+relative filenames, and Snow resolves them relative to wherever the
+workspace file itself lives on disk (confirmed by a real "Failed to load
+workspace: No such file or directory" until this was accounted for). So
+`output.snoww` generally needs to land in the same directory as the
+template (e.g. Snow's own install directory) for those to keep resolving --
+`disk.hda` itself is fine anywhere, since it gets an absolute path.
+
+`disk.hda` needs to be a SCSI-style device image (partition map + driver),
+not the plain HFS image `build-floppy.sh` produces directly -- convert with
+[djjr](https://diskjockey.onegeekarmy.eu/) first: `djjr convert to-device
+in.img out.hda`.
+
 ## Requirements
 
 macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
