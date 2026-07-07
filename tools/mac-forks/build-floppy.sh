@@ -1,0 +1,78 @@
+#!/bin/sh
+# Builds an HFS floppy image containing every file mac-forks tracks for
+# this project. Driven entirely by the same git-attribute discovery
+# export.sh/import.sh/install.sh already use -- tracked .hqx/.r
+# sidecars name the real, materialized forked files; filter=mactext
+# names the real text files. No per-project file list needed at all.
+#
+# Usage: tools/mac-forks/build-floppy.sh <output.img> [blocks] [label] [text_creator]
+#   blocks       512-byte blocks; default 8192 (4MB)
+#   label        HFS volume name; default output filename's basename
+#   text_creator Finder creator to stamp on text files (e.g. KAHL for
+#                Symantec/THINK C) so an IDE double-click-opens them.
+#                Left unset, text files just get whatever `-a` auto
+#                mode assigns (correct type, generic creator).
+#
+# Requires hfsutils (brew install hfsutils) and macbinary (ships with
+# base macOS), on top of mac-forks' usual requirements.
+set -eu
+
+# hfsutils/macbinary aren't part of mac-forks' core requirements (most
+# consumers never need this script), so they're checked here rather
+# than in install.sh.
+for tool in dd hformat hmount humount hcopy hattrib macbinary; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "$0: missing $tool -- install hfsutils (brew install hfsutils)" >&2
+        exit 1
+    fi
+done
+
+out=${1:?"usage: $0 <output.img> [blocks] [label] [text_creator]"}
+blocks=${2:-8192}
+label=${3:-$(basename "$out" | sed 's/\.[^.]*$//')}
+text_creator=${4:-}
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+# shellcheck source=lib.sh
+. "$root/tools/mac-forks/lib.sh"
+
+mkdir -p "$(dirname "$out")"
+rm -f "$out"
+dd if=/dev/zero of="$out" bs=512 count="$blocks"
+hformat -l "$label" "$out"
+
+humount 2>/dev/null || true   # in case a previous run left something mounted
+hmount "$out"
+
+# Forked files: any tracked .hqx/.r sidecar names a real, materialized
+# file with a genuine resource fork. hcopy has no idea macOS files can
+# have one at all, so bridge through MacBinary (both forks +
+# type/creator in one blob) and let hcopy -m decode it properly onto
+# the volume.
+git -c core.quotePath=false ls-files | while IFS= read -r f; do
+    if has_ext_ci "$f" hqx || has_ext_ci "$f" r; then
+        real=${f%.*}
+        [ -f "$real" ] || continue
+        tmp=$(mktemp -d)
+        macbinary encode -p "$real" >"$tmp/blob.bin"
+        hcopy -m "$tmp/blob.bin" ":$real"
+        rm -rf "$tmp"
+        echo "hcopy -m: $real"
+    fi
+done
+
+# mactext-filtered text files: -a auto-detects TEXT correctly, but
+# tags creator as generic UNIX. If a creator was given, fix it up so
+# the relevant IDE recognizes/double-click-opens these properly.
+git -c core.quotePath=false ls-files | while IFS= read -r f; do
+    attr=$(git check-attr filter -- "$f" | awk -F': ' '{print $NF}')
+    if [ "$attr" = mactext ]; then
+        hcopy -a "$f" ":$f"
+        [ -z "$text_creator" ] || hattrib -c "$text_creator" ":$f"
+        echo "hcopy -a: $f"
+    fi
+done
+
+humount
+echo "done: $out"
