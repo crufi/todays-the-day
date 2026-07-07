@@ -31,7 +31,7 @@ FLOPPY_IMAGE  := $(BUILD_DIR)/out.img
 DEVICE_IMAGE  := $(BUILD_DIR)/out.hda
 WORKSPACE     := $(BUILD_DIR)/out.snoww
 FLOPPY_BLOCKS := 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
-FLOPPY_LABEL  := Build
+FLOPPY_LABEL  := Source
 TEXT_CREATOR  := KAHL   # Symantec/THINK C, so double-click opens source in the IDE
 
 .PHONY: all run clean

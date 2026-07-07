@@ -8,27 +8,20 @@ image. Snow's own attach-a-disk-in-the-GUI-and-save-workspace flow
 does exactly this same edit to the .snoww JSON, so this just automates
 that, non-interactively.
 
-The template's own file paths (ROM, PRAM, existing disks) are stored
-relative to the template's own directory. Since the output workspace
-gets written somewhere else entirely (this project's build/ dir), this
-resolves every path in the copy to absolute, not just the newly added
-one -- otherwise the pre-existing entries would silently point at
-nonexistent files relative to the new location.
+Touches ONLY the new disk's path -- every other field (ROM, PRAM,
+existing disks) is left exactly as the template has it. An earlier
+version of this script resolved every path in the workspace to
+absolute, on the theory that the template's own relative paths
+wouldn't survive being copied to a different directory; that broke
+Snow (confirmed). Whatever Snow resolves those relative paths against
+isn't "the workspace file's own directory" the way this assumed -- so
+leave them alone and only touch what's actually new.
 
 Usage: attach-disk.py <template.snoww> <disk.hda> <output.snoww>
 """
 import json
 import sys
 from pathlib import Path
-
-PATH_FIELDS = ("rom_path", "display_card_rom_path", "pram_path", "extension_rom_path")
-
-
-def resolve(base_dir, value):
-    if not value:
-        return value
-    path = Path(value)
-    return str(path) if path.is_absolute() else str((base_dir / path).resolve())
 
 
 def main():
@@ -37,16 +30,7 @@ def main():
     template_path, disk_path, output_path = (Path(p) for p in sys.argv[1:4])
 
     workspace = json.loads(template_path.read_text())
-    base_dir = template_path.resolve().parent
-
-    for field in PATH_FIELDS:
-        if field in workspace:
-            workspace[field] = resolve(base_dir, workspace[field])
-
     targets = workspace.get("scsi_targets", [])
-    for entry in targets:
-        if isinstance(entry, dict) and "Disk" in entry:
-            entry["Disk"] = resolve(base_dir, entry["Disk"])
 
     try:
         slot = targets.index("None")
