@@ -1,5 +1,5 @@
 *.hqx -text
-*.r -text
+*.r filter=macroman -text
 *.c filter=mactext -text
 *.h filter=mactext -text
 *.cp filter=mactext -text
