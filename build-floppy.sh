@@ -13,16 +13,23 @@
 #                Left unset, text files just get whatever `-a` auto
 #                mode assigns (correct type, generic creator).
 #
-# Requires hfsutils (brew install hfsutils) and macbinary (ships with
-# base macOS), on top of mac-forks' usual requirements.
+# Requires hfsutils (brew install hfsutils) for hformat/hmount/humount/
+# hcopy/hattrib, plus macbinary (ships with base macOS -- NOT part of
+# hfsutils, don't try to brew-install it) and iconv/dd (also base
+# macOS). None of this is part of mac-forks' core requirements (most
+# consumers never need this script), so it's checked here rather than
+# in install.sh.
 set -eu
 
-# hfsutils/macbinary aren't part of mac-forks' core requirements (most
-# consumers never need this script), so they're checked here rather
-# than in install.sh.
-for tool in dd hformat hmount humount hcopy hattrib macbinary; do
+for tool in hformat hmount humount hcopy hattrib; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "$0: missing $tool -- install hfsutils (brew install hfsutils)" >&2
+        exit 1
+    fi
+done
+for tool in dd macbinary iconv; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "$0: missing $tool -- expected to ship with base macOS" >&2
         exit 1
     fi
 done
@@ -37,10 +44,21 @@ cd "$root"
 # shellcheck source=lib.sh
 . "$root/tools/mac-forks/lib.sh"
 
+# HFS catalog names are Mac Roman, not UTF-8 -- hcopy doesn't convert,
+# it just writes whatever bytes you give it as the destination name.
+# Handed a plain UTF-8 filename (macOS's own native encoding, which is
+# all Unix filenames are), the result is silently wrong: "π" (UTF-8
+# 0xCF 0x80) becomes "œÄ" on the classic Mac side, since those same two
+# bytes are a different pair of characters in Mac Roman. Confirmed
+# empirically -- this is exactly what happened before this existed.
+hfsname() {
+    printf '%s' "$1" | LC_ALL=C iconv -f UTF-8 -t MACINTOSH
+}
+
 mkdir -p "$(dirname "$out")"
 rm -f "$out"
 dd if=/dev/zero of="$out" bs=512 count="$blocks"
-hformat -l "$label" "$out"
+hformat -l "$(hfsname "$label")" "$out"
 
 humount 2>/dev/null || true   # in case a previous run left something mounted
 hmount "$out"
@@ -56,7 +74,7 @@ git -c core.quotePath=false ls-files | while IFS= read -r f; do
         [ -f "$real" ] || continue
         tmp=$(mktemp -d)
         macbinary encode -p "$real" >"$tmp/blob.bin"
-        hcopy -m "$tmp/blob.bin" ":$real"
+        hcopy -m "$tmp/blob.bin" ":$(hfsname "$real")"
         rm -rf "$tmp"
         echo "hcopy -m: $real"
     fi
@@ -68,8 +86,8 @@ done
 git -c core.quotePath=false ls-files | while IFS= read -r f; do
     attr=$(git check-attr filter -- "$f" | awk -F': ' '{print $NF}')
     if [ "$attr" = mactext ]; then
-        hcopy -a "$f" ":$f"
-        [ -z "$text_creator" ] || hattrib -c "$text_creator" ":$f"
+        hcopy -a "$f" ":$(hfsname "$f")"
+        [ -z "$text_creator" ] || hattrib -c "$text_creator" ":$(hfsname "$f")"
         echo "hcopy -a: $f"
     fi
 done
