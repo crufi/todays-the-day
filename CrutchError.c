@@ -296,7 +296,7 @@ void MessageBox(ConstStr255Param s)
 	_MessageBox(s, noteIcon, false);
 }
 
-	static pascal void _FrameDefaultButton(DialogPtr dlog, short userItemNumber)
+static pascal void _FrameDefaultButton(DialogPtr dlog, short userItemNumber)
 // gets default item number from DialogRecord (usually 1)
 {
 	Handle h;
