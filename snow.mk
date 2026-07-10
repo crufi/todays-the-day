@@ -11,15 +11,15 @@
 #   curl -L -o /tmp/djjr.pkg https://diskjockey.onegeekarmy.eu/files/djjr/djjr-2.1.0.pkg && installer -pkg /tmp/djjr.pkg -target CurrentUserHomeDirectory
 #   (or: sudo port install djjr)
 #
-# build-floppy.sh's native output is a plain HFS image in floppy
-# format -- a real, valid floppy image, just one Snow's own --floppy
-# doesn't recognize (confirmed: doesn't boot/mount). So it's only an
-# intermediate step here: djjr converts it into a partitioned
-# SCSI-style device image (same shape as a real hard disk image),
-# which gets attached via the workspace's own scsi_targets JSON --
-# the same edit Snow itself makes when you attach a disk through the
-# GUI and save, just automated (snow-attach-disk.py) so it can happen
-# from the command line.
+# build-floppy.sh's native output (built via image.mk) is a plain HFS
+# image in floppy format -- a real, valid floppy image, just one
+# Snow's own --floppy doesn't recognize (confirmed: doesn't
+# boot/mount). So it's only an intermediate step here: djjr converts
+# it into a partitioned SCSI-style device image (same shape as a real
+# hard disk image), which gets attached via the workspace's own
+# scsi_targets JSON -- the same edit Snow itself makes when you attach
+# a disk through the GUI and save, just automated (snow-attach-disk.py)
+# so it can happen from the command line.
 #
 # The generated workspace has to live in SNOW_PATH itself, not this
 # project's BUILD_DIR -- confirmed ("Failed to load workspace: No
@@ -30,14 +30,11 @@
 # the newly added disk gets (and needs) an absolute path, since it
 # genuinely lives elsewhere.
 
-SNOW_PATH     ?= $(HOME)/Snow
-SNOW          := $(SNOW_PATH)/Snow.app/Contents/MacOS/Snow
-BUILD_DIR     ?= build
-VOLUME_BLOCKS ?= 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
-VOLUME_LABEL  ?= Source
+include tools/mac-forks/image.mk
 
-HFS_IMAGE    := $(BUILD_DIR)/source.img     # plain HFS, floppy format -- build-floppy.sh's native output
-DEVICE_IMAGE := $(BUILD_DIR)/source.hda     # same content, converted to a SCSI-attachable device
+SNOW_PATH    ?= $(HOME)/Snow
+SNOW         := $(SNOW_PATH)/Snow.app/Contents/MacOS/Snow
+DEVICE_IMAGE := $(BUILD_DIR)/source.hda   # source.img, converted to a SCSI-attachable device
 
 # Named after the including project's own directory, so multiple
 # projects using this fragment don't collide writing into SNOW_PATH.
@@ -46,10 +43,6 @@ WORKSPACE := $(SNOW_PATH)/$(notdir $(CURDIR)).snoww
 .PHONY: all run clean
 
 all: $(HFS_IMAGE)
-
-$(HFS_IMAGE): tools/mac-forks/import.sh
-	sh tools/mac-forks/import.sh
-	sh tools/mac-forks/build-floppy.sh $@ $(VOLUME_BLOCKS) $(VOLUME_LABEL) $(TEXT_CREATOR)
 
 $(DEVICE_IMAGE): $(HFS_IMAGE)
 	djjr convert to-device $(HFS_IMAGE) $@
