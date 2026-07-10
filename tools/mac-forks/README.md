@@ -4,8 +4,9 @@ Git tools for tracking classic Mac OS files that mainly live in their **resource
 fork** rather than their data fork — project files, ResEdit resource files,
 anything from the Symantec/THINK C/CodeWarrior/MPW era.
 
-New to this? [SETUP.md](SETUP.md) is a step-by-step checklist for adding it
-to a fresh repo. This README explains what it does and why.
+New to this? Jump to [Setting up a new project](#setting-up-a-new-project)
+below for a step-by-step checklist. The rest of this README explains what
+each piece does and why.
 
 ## The problem
 
@@ -103,7 +104,7 @@ already checked the file out, reading the marker from the tracked blob
 pull "just the first line" back out of it).
 
 Add it to whichever extensions your project's classic Mac source uses, in
-your own `.gitattributes` (see [SETUP.md](SETUP.md)):
+your own `.gitattributes` (see [Setting up a new project](#setting-up-a-new-project)):
 
 ```
 *.c filter=mactext -text
@@ -258,12 +259,143 @@ macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
 for `/usr/bin/binhex`, `/usr/bin/DeRez`, `/usr/bin/Rez`, `/usr/bin/SetFile`
 (for the resource-fork tools only, not mactext).
 
-## Using this in a project
+## Setting up a new project
 
 This repo is meant to be vendored via `git subtree`, at the fixed path
 `tools/mac-forks/` (the scripts assume that path — they don't work run from
-anywhere else). For adding it to a project for the first time, see
-[SETUP.md](SETUP.md). Quick reference for a project that already has it:
+anywhere else). Checklist for wiring it into a fresh git repo around a
+classic Mac project (THINK C/Symantec C++/CodeWarrior/MPW era); see the
+sections above for what each piece does and why, and
+[Requirements](#requirements) below for what needs to be installed first.
+
+### 1. Init the repo
+
+```sh
+git init
+```
+
+### 2. Pull in mac-forks
+
+```sh
+git remote add mac-forks https://github.com/crufi/mac-forks.git
+git subtree add --prefix=tools/mac-forks mac-forks main --squash
+sh tools/mac-forks/install.sh
+```
+
+`install.sh` checks for the required tools, symlinks the `pre-commit` /
+`post-checkout` / `post-merge` hooks, and configures the `mactext`/`macroman`
+filters. **Every clone needs to run this once** — hooks and filter config
+live in `.git/`, which `git clone` never populates.
+
+### 3. Add `.gitattributes`
+
+Not shipped by mac-forks itself — every project's extensions differ, so this
+lives in your own repo, one pattern per line. `*.r` gets `macroman`
+(encoding only — these are mac-forks' own generated sidecars, always
+LF-native, never CR); your actual vintage source gets `mactext` (encoding
+*and* CR↔LF, since those files are genuinely CR-authored):
+
+```
+*.hqx -text
+*.r filter=macroman -text
+
+*.c filter=mactext -text
+*.h filter=mactext -text
+*.cp filter=mactext -text
+*.cpp filter=mactext -text
+*.hpp filter=mactext -text
+```
+
+Add more `filter=mactext -text` lines for whatever else your project has —
+`.p`/`.pas` (Pascal), `.a`/`.asm`, etc.
+
+⚠️ **Naming collision to watch for:** mac-forks generates `.r` sidecars for
+resource-only files (`Foo.rsrc` → `Foo.rsrc.r`). If your project also has
+genuine hand-written Rez source ending in `.r`, **rename them** (`.rez` or
+similar instead of `.r`) before using mac-forks.
+
+### 4. Normal `.gitignore` stuff
+
+`export.sh` maintains its own generated block automatically (listing
+whichever resource-fork-bearing files it finds) — leave that alone. You'll
+still want the usual:
+
+```
+.DS_Store
+```
+
+### 5. Add your files, commit
+
+Edit everything normally — including the real `.π`/`.rsrc` files directly in
+ResEdit/the IDE. The `pre-commit` hook finds anything with a resource fork
+and encodes it automatically; you never `git add` those files yourself.
+
+```sh
+git add .
+git commit -m "Initial commit"
+```
+
+### 6. Verify with a genuinely fresh clone
+
+Problems in this kind of setup mostly only show up on a fresh clone — an
+already-configured working copy hides plenty. Before trusting it:
+
+```sh
+cd /tmp && git clone /path/to/your/repo verify-me && cd verify-me
+sh tools/mac-forks/install.sh
+# diff verify-me's files against your real working copy
+```
+
+### 7. Push
+
+Wherever you like (GitHub, etc.) — nothing here is remote-specific.
+
+### 8. (Optional) Build + launch in an emulator
+
+Not part of getting git tracking working — a separate, optional layer for
+actually opening the project somewhere. If you use Snow, wire up both
+`snow.mk` (build + launch) and `release.mk` (package a release) in your
+project's own `Makefile`:
+
+```makefile
+SNOW_WORKSPACE ?= $(HOME)/Snow/your-workspace.snoww   # point this at your own workspace
+TEXT_CREATOR   := WHATEVER                             # your toolchain's creator code, e.g. KAHL for Symantec/THINK C
+
+include tools/mac-forks/snow.mk
+include tools/mac-forks/release.mk
+```
+
+`make run` builds the disk image and launches Snow with it attached. See
+[Wiring it all together for Snow](#wiring-it-all-together-for-snow-snowmk)
+and [Packaging a release](#packaging-a-release-releasemk) above for what
+else can be overridden (`SNOW_PATH`, `VOLUME_BLOCKS`, `VOLUME_LABEL`,
+`BUILD_DIR`, `RELEASE_DIR`).
+
+### 9. (Optional) Cutting a release
+
+Tagging a commit and packaging its disk image are deliberately separate
+steps — see [Packaging a release](#packaging-a-release-releasemk) above for
+why. `gh release create` is what actually publishes it, attaching the zip
+`make release` built:
+
+```sh
+git tag -a v1.0.0 -m "First public release"
+git push origin v1.0.0
+make release VERSION=v1.0.0
+gh release create v1.0.0 dist/*-v1.0.0.zip \
+  --title "v1.0.0" --notes "..."
+```
+
+If your project has more than one git remote (e.g. `origin` plus the
+`mac-forks` subtree remote you just added in step 2), `gh` can't always
+guess which one is the "real" GitHub repo, and `gh release create` fails
+with `No default remote repository has been set`. Fix once per clone with:
+
+```sh
+gh repo set-default owner/repo
+```
+
+## Keeping mac-forks up to date
 
 Pulling in later mac-forks improvements:
 
