@@ -221,6 +221,37 @@ launches Snow with it attached), and `make clean`. `SNOW_PATH`,
 defaults (see the top of `snow.mk`) but can be overridden the same way,
 set before the `include` line.
 
+The disk-image build rule itself actually lives in `image.mk`, which
+`snow.mk` includes -- see the next section for why that's a separate file.
+
+### Packaging a release (`release.mk`)
+
+Builds a versioned zip of the project's source disk image -- not a
+compiled binary; there's no way to automate the actual build, since that
+happens by hand inside whatever vintage IDE you're using.
+
+```makefile
+TEXT_CREATOR := KAHL
+
+include tools/mac-forks/release.mk
+```
+
+Then `make release` (or `make release VERSION=v1.2.0` -- left unset, it
+falls back to `git describe`, using the commit hash if the repo has no
+tags yet). Writes to `dist/` by default (`RELEASE_DIR`, overridable).
+
+Tagging the commit is deliberately **not** part of this target -- building
+an artifact and declaring a commit "the v1.2.0 release" are different
+actions, and the latter mutates shared repo state (visible to others, if
+pushed), which a `make` target shouldn't do as a side effect. Do that the
+plain way: `git tag -a v1.2.0 -m "..." && git push origin v1.2.0`.
+
+Both `snow.mk` and `release.mk` need the same disk-image build rule, so it
+lives once in `image.mk`, which each includes -- guarded against being
+processed twice (`ifndef`/`endif`), so a project using both `snow.mk` and
+`release.mk` together doesn't get a "overriding recipe for target"
+warning from Make.
+
 ## Requirements
 
 macOS with the Xcode Command Line Tools installed (`xcode-select --install`),
