@@ -19,6 +19,15 @@
 
 include tools/mac-forks/image.mk
 
+# Guard against the `make release VER=...` typo -- VER isn't a variable
+# this file reads, so without this it's silently ignored and VERSION
+# falls back to `git describe`, producing a validly-built but
+# misleadingly-named zip (e.g. a commit-hash name instead of the
+# version you meant to tag).
+ifeq ($(origin VER),command line)
+$(error VER=$(VER) was set, but this uses VERSION -- did you mean 'make release VERSION=$(VER)'?)
+endif
+
 VERSION      ?= $(shell git describe --tags --always --dirty)
 RELEASE_DIR  ?= dist
 RELEASE_NAME := $(notdir $(CURDIR))-$(VERSION)
