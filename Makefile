@@ -8,3 +8,5 @@ SNOW_WORKSPACE ?= $(HOME)/Snow/iix.snoww   # <-- point this at your own workspac
 TEXT_CREATOR   := KAHL   # Symantec/THINK C, so double-click opens source in the IDE
 
 include tools/mac-forks/snow.mk
+
+include tools/mac-forks/release.mk
