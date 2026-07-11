@@ -40,11 +40,21 @@ DEVICE_IMAGE := $(BUILD_DIR)/disk.hda   # disk.img, converted to a SCSI-attachab
 # projects using this fragment don't collide writing into SNOW_PATH.
 WORKSPACE := $(SNOW_PATH)/$(notdir $(CURDIR)).snoww
 
-.PHONY: all run clean
+.PHONY: all run clean pull
 
-all: $(HFS_IMAGE)
+# Builds both images, not just disk.img -- disk.hda is what Snow (and a
+# release, see release.mk) actually needs, so a plain `make`/`make all`
+# should leave it in a working, current state too, not just the
+# intermediate.
+all: $(DEVICE_IMAGE)
 
+# guard-overwrite.sh runs before djjr overwrites disk.hda -- if the disk
+# looks like it has edits nothing's pulled back yet (see pull-from-disk.sh
+# and the target below), this stops here rather than silently discarding
+# them. FORCE=1 skips it (needed for non-interactive use, since the
+# confirmation prompt reads from stdin).
 $(DEVICE_IMAGE): $(HFS_IMAGE)
+	FORCE=$(FORCE) sh tools/mac-forks/guard-overwrite.sh $@
 	djjr convert to-device $(HFS_IMAGE) $@
 
 $(WORKSPACE): $(DEVICE_IMAGE) tools/mac-forks/snow-attach-disk.py
@@ -53,6 +63,18 @@ $(WORKSPACE): $(DEVICE_IMAGE) tools/mac-forks/snow-attach-disk.py
 run: $(WORKSPACE)
 	$(SNOW) --fullscreen $(WORKSPACE) &
 
+# Pulls files off the *existing* disk.hda back into the working tree --
+# for when something got edited directly in the emulator. Deliberately
+# does not depend on $(DEVICE_IMAGE) as a prerequisite: that would trigger
+# the rebuild rule above first, overwriting the very edits this is meant
+# to rescue, before this recipe ever runs.
+pull:
+	@test -f $(DEVICE_IMAGE) || { echo "no $(DEVICE_IMAGE) -- run 'make run' first" >&2; exit 1; }
+	sh tools/mac-forks/pull-from-disk.sh $(DEVICE_IMAGE)
+
+# clean deletes disk.hda outright, same risk as the rebuild above -- same
+# guard.
 clean:
+	FORCE=$(FORCE) sh tools/mac-forks/guard-overwrite.sh $(DEVICE_IMAGE)
 	rm -rf $(BUILD_DIR)
 	rm -f $(WORKSPACE)

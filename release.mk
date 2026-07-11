@@ -37,12 +37,19 @@ RELEASE_ZIP  := $(RELEASE_DIR)/$(RELEASE_NAME).zip
 
 release: $(RELEASE_ZIP)
 
-$(RELEASE_ZIP): $(HFS_IMAGE)
+# disk.hda only exists if the including project's Makefile pulled in
+# snow.mk (which defines DEVICE_IMAGE) before release.mk -- bundle it
+# alongside disk.img when that's the case, since anyone using Snow wants
+# the ready-to-attach device image, not just the plain HFS one. Left out
+# entirely for projects that never included snow.mk, so `make release`
+# doesn't grow a hard djjr dependency for people who don't use Snow.
+$(RELEASE_ZIP): $(HFS_IMAGE) $(DEVICE_IMAGE)
 	@mkdir -p $(RELEASE_DIR)
-	rm -f $@ $(RELEASE_DIR)/$(RELEASE_NAME).img
+	rm -f $@ $(RELEASE_DIR)/$(RELEASE_NAME).img $(if $(DEVICE_IMAGE),$(RELEASE_DIR)/$(RELEASE_NAME).hda)
 	cp $(HFS_IMAGE) $(RELEASE_DIR)/$(RELEASE_NAME).img
-	cd $(RELEASE_DIR) && zip $(RELEASE_NAME).zip $(RELEASE_NAME).img
-	rm -f $(RELEASE_DIR)/$(RELEASE_NAME).img
+	$(if $(DEVICE_IMAGE),cp $(DEVICE_IMAGE) $(RELEASE_DIR)/$(RELEASE_NAME).hda)
+	cd $(RELEASE_DIR) && zip $(RELEASE_NAME).zip $(RELEASE_NAME).img $(if $(DEVICE_IMAGE),$(RELEASE_NAME).hda)
+	rm -f $(RELEASE_DIR)/$(RELEASE_NAME).img $(if $(DEVICE_IMAGE),$(RELEASE_DIR)/$(RELEASE_NAME).hda)
 
 release-clean:
 	rm -rf $(RELEASE_DIR)
