@@ -34,16 +34,9 @@ resources to localize it — no recompiling needed.
 ## Building from source
 
 This is a Symantec C++ (THINK C) project — `TodaysTheDay.π` is the
-project file, `TodaysTheDay.π.rsrc` its resource file, alongside a couple of
-small shared utility modules (`CrutchError`/`CrutchUtilities`) for error
-handling and general Toolbox helpers.
-
-`CrutchError` and `CrutchUtilities` are my general purpose C utility libraries
-I have used in a variety of projects, typically just by embedding the whole 
-file in each proejct. They include many features not used in Today's the Day
-at all, and hopefully Symantec C++'s "smart linker" strips that dead code, but
-I haven't really checked. Anyway I left them as-is because some of the other
-tricks and techniques in there may be instructive to 68K Mac hobbyists.
+project file, `TodaysTheDay.π.rsrc` its resource file, alongside a 
+small shared utility module (`CrutchError`) I use for graceful error
+handling for trap-patching INITs.
 
 Both `.π` and `.π.rsrc` are resource-fork-only files with nothing in their
 data fork, which git can't track directly — this repo uses
