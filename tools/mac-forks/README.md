@@ -282,17 +282,31 @@ if it holds edits `make pull` hasn't rescued yet. Both are gated by
 `guard-overwrite.sh`, which checks two things before letting either
 proceed:
 
-- **Whole-image**: is `disk.hda` itself newer than every local tracked
-  file? (Suggests something -- almost certainly the emulator -- touched it
-  after your last local edit.)
-- **Per-file**: is any individual file's HFS catalog modification date
-  (`hls -l`) newer than its local counterpart's mtime?
+- **Whole-image**: is `disk.hda` itself newer than the `disk.img` it was
+  last converted from (plus a small tolerance for normal build
+  sequencing)?
+- **Per-file**: does any individual file's HFS catalog modification date
+  (`hls -l`) fall after that same reference point?
 
-If either trips, it prints exactly what it found and requires typing a
-phrase before continuing: `BORK N` (N = the number of specific files
-flagged) if the per-file check caught anything, or `BORK DISK` if only the
-whole-image check did. Anything else aborts -- the existing `disk.hda` is
-left untouched, and the calling `make` target fails.
+Both are compared against `disk.img`'s own mtime, not local source files
+directly -- a build always happens strictly after the local files it
+reads, so comparing against local mtimes flags every ordinary build for
+no real reason (confirmed; that was the first version's bug). The check
+also has to run *before* anything else touches `disk.img`/`disk.hda` this
+invocation -- `snow.mk`/`release.mk` list it as the first prerequisite of
+every target that can destroy `disk.hda`, ahead of the image-build rule
+itself, so the comparison sees things exactly as they were before this
+`make` invocation started.
+
+The per-file check also catches files that exist on `disk.hda` with no
+tracked/local counterpart at all -- created directly in the emulator,
+never pulled before -- and lists those separately, in green.
+
+If either check trips, it prints exactly what it found and requires
+typing a phrase before continuing: `BORK N` (N = the number of specific
+files flagged) if the per-file check caught anything, or `BORK DISK` if
+only the whole-image check did. Anything else aborts -- the existing
+`disk.hda` is left untouched, and the calling `make` target fails.
 
 Set `FORCE=1` (e.g. `make run FORCE=1`) to skip the check entirely --
 needed for non-interactive use, since the prompt reads from stdin and
