@@ -40,7 +40,7 @@ DEVICE_IMAGE := $(BUILD_DIR)/disk.hda   # disk.img, converted to a SCSI-attachab
 # projects using this fragment don't collide writing into SNOW_PATH.
 WORKSPACE := $(SNOW_PATH)/$(notdir $(CURDIR)).snoww
 
-.PHONY: all run clean pull
+.PHONY: all run clean pull guard-hda
 
 # Builds both images, not just disk.img -- disk.hda is what Snow (and a
 # release, see release.mk) actually needs, so a plain `make`/`make all`
@@ -53,8 +53,19 @@ all: $(DEVICE_IMAGE)
 # and the target below), this stops here rather than silently discarding
 # them. FORCE=1 skips it (needed for non-interactive use, since the
 # confirmation prompt reads from stdin).
-$(DEVICE_IMAGE): $(HFS_IMAGE)
-	FORCE=$(FORCE) sh tools/mac-forks/guard-overwrite.sh $@
+#
+# guard-hda is its OWN phony target, not just a recipe line inside
+# $(DEVICE_IMAGE)'s rule -- Make treats disk.hda as up to date whenever
+# it's newer than disk.img, which is exactly what happens after an
+# in-emulator edit (confirmed: "Nothing to be done for `all'", guard
+# never even ran). A phony prerequisite has no mtime of its own, so
+# Make always considers it (and therefore $(DEVICE_IMAGE)) out of date
+# and re-runs both -- the one case this guard exists for is also the
+# one case a plain file-mtime rule would skip it entirely.
+guard-hda:
+	FORCE=$(FORCE) sh tools/mac-forks/guard-overwrite.sh $(DEVICE_IMAGE) $(HFS_IMAGE)
+
+$(DEVICE_IMAGE): $(HFS_IMAGE) guard-hda
 	djjr convert to-device $(HFS_IMAGE) $@
 
 $(WORKSPACE): $(DEVICE_IMAGE) tools/mac-forks/snow-attach-disk.py
@@ -74,7 +85,6 @@ pull:
 
 # clean deletes disk.hda outright, same risk as the rebuild above -- same
 # guard.
-clean:
-	FORCE=$(FORCE) sh tools/mac-forks/guard-overwrite.sh $(DEVICE_IMAGE)
+clean: guard-hda
 	rm -rf $(BUILD_DIR)
 	rm -f $(WORKSPACE)

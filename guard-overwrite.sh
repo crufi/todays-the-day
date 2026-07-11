@@ -6,7 +6,12 @@
 # before letting the caller proceed. Anything else aborts (non-zero
 # exit), leaving the disk image untouched.
 #
-# Usage: tools/mac-forks/guard-overwrite.sh <disk-image>
+# Usage: tools/mac-forks/guard-overwrite.sh <disk-image> [built-from-image]
+#
+# <built-from-image>, if given (e.g. disk.img, what disk.hda gets
+# djjr-converted from), is the reference point for the whole-image check
+# below. Omit it and that check instead falls back to the newest local
+# tracked file's mtime.
 #
 # Set FORCE=1 (env or `make ... FORCE=1`) to skip all of this --
 # needed for non-interactive use, since the confirmation prompt reads
@@ -14,7 +19,8 @@
 set -eu
 export LC_ALL=C   # HFS catalog names off hls are raw Mac Roman bytes
 
-disk=${1:?"usage: $0 <disk-image>"}
+disk=${1:?"usage: $0 <disk-image> [built-from-image]"}
+ref_image=${2:-}
 
 [ -z "${FORCE:-}" ] || exit 0
 [ -f "$disk" ] || exit 0   # nothing to lose
@@ -58,12 +64,23 @@ while IFS= read -r f; do
     printf '%s\t%s\n' "$real" "$mtime" >>"$tmp/candidates"
 done <"$tmp/tracked"
 
-# Whole-image check: is the disk image itself newer than every local
-# tracked file? If so, something touched it (almost certainly the
-# emulator) after the last local edit.
+# Whole-image check: is the disk image newer than the image it was last
+# converted from (disk.img), by more than a build normally takes? disk.hda
+# is *always* written a moment after disk.img in a legitimate build (djjr
+# reads one, writes the other), so comparing against local source files
+# directly false-positived on every single ordinary build -- disk.hda is
+# necessarily newer than files that existed before the build even started.
+# A tolerance absorbs that normal sequencing gap; only something touching
+# disk.hda well after its own build (i.e. the emulator) trips this.
+if [ -n "$ref_image" ] && [ -f "$ref_image" ]; then
+    ref_mtime=$(stat -f %m "$ref_image")
+else
+    ref_mtime=$newest_local
+fi
 disk_mtime=$(stat -f %m "$disk")
+tolerance=300
 whole_flag=0
-[ "$disk_mtime" -gt "$newest_local" ] && whole_flag=1
+[ "$disk_mtime" -gt "$((ref_mtime + tolerance))" ] && whole_flag=1
 
 # Per-file check: hls -l shows "Mon DD HH:MM" for recent files or
 # "Mon DD  YYYY" for older ones -- a 4-digit third token means "use this
