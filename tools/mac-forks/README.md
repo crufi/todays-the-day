@@ -171,6 +171,30 @@ Requires `hfsutils` (`brew install hfsutils`) and `macbinary` (ships with
 base macOS) -- checked by the script itself, not `install.sh`, since most
 mac-forks consumers never need this.
 
+## Pulling edits back out of a disk image (`pull-from-disk.sh`)
+
+If you edit files directly inside the emulator (in the IDE, say) rather
+than on the host, those edits only exist on the disk image until something
+brings them back. `pull-from-disk.sh` is `build-floppy.sh` run in reverse --
+same file discovery, opposite direction:
+
+```sh
+tools/mac-forks/pull-from-disk.sh <disk-image>
+```
+
+Works on a plain `.img` or a `djjr`-converted `.hda` (mounts either with
+plain `hmount`). Forked files come back via `hcopy -m` + `macbinary
+decode`; `mactext` files come back via `hcopy -r` (raw -- same
+double-conversion bug `build-floppy.sh` works around applies here too),
+which lands them in the working tree exactly as genuine Mac Roman + CR,
+ready for git's own `mactext` filter to normalize at the next `git add`.
+
+Doesn't run `export.sh` or `git add` itself -- it only updates the real
+files. `git status`/`git diff` afterward show exactly what came back from
+the emulator, same as any other local edit.
+
+Wired into `snow.mk` as `make pull` -- see below.
+
 ## Attaching a disk in Snow (`snow-attach-disk.py`)
 
 For Snow specifically (a Mac II-class emulator): its `--floppy` doesn't
@@ -216,11 +240,39 @@ TEXT_CREATOR   := KAHL                                 # required -- your toolch
 include tools/mac-forks/snow.mk
 ```
 
-Gives you `make` (builds the disk image), `make run` (builds, then
-launches Snow with it attached), and `make clean`. `SNOW_PATH`,
-`VOLUME_BLOCKS`, `VOLUME_LABEL`, and `BUILD_DIR` all have reasonable
-defaults (see the top of `snow.mk`) but can be overridden the same way,
-set before the `include` line.
+Gives you `make`/`make all` (builds both `disk.img` and `disk.hda`), `make
+run` (builds, then launches Snow with it attached), `make pull` (pulls
+edits back out of the *existing* `disk.hda` -- see
+[Pulling edits back out of a disk image](#pulling-edits-back-out-of-a-disk-image-pull-from-disksh)
+above; deliberately doesn't trigger a rebuild first, since that would
+destroy the very edits it's meant to rescue), and `make clean`.
+`SNOW_PATH`, `VOLUME_BLOCKS`, `VOLUME_LABEL`, and `BUILD_DIR` all have
+reasonable defaults (see the top of `snow.mk`) but can be overridden the
+same way, set before the `include` line.
+
+### Guarding against overwriting in-emulator edits (`guard-overwrite.sh`)
+
+Rebuilding `disk.hda` (via `djjr convert to-device`) or running `make
+clean` both destroy whatever's currently on it -- fine normally, not fine
+if it holds edits `make pull` hasn't rescued yet. Both are gated by
+`guard-overwrite.sh`, which checks two things before letting either
+proceed:
+
+- **Whole-image**: is `disk.hda` itself newer than every local tracked
+  file? (Suggests something -- almost certainly the emulator -- touched it
+  after your last local edit.)
+- **Per-file**: is any individual file's HFS catalog modification date
+  (`hls -l`) newer than its local counterpart's mtime?
+
+If either trips, it prints exactly what it found and requires typing a
+phrase before continuing: `BORK N` (N = the number of specific files
+flagged) if the per-file check caught anything, or `BORK DISK` if only the
+whole-image check did. Anything else aborts -- the existing `disk.hda` is
+left untouched, and the calling `make` target fails.
+
+Set `FORCE=1` (e.g. `make run FORCE=1`) to skip the check entirely --
+needed for non-interactive use, since the prompt reads from stdin and
+would otherwise hang.
 
 The disk-image build rule itself actually lives in `image.mk`, which
 `snow.mk` includes -- see the next section for why that's a separate file.
@@ -240,6 +292,12 @@ include tools/mac-forks/release.mk
 Then `make release` (or `make release VERSION=v1.2.0` -- left unset, it
 falls back to `git describe`, using the commit hash if the repo has no
 tags yet). Writes to `dist/` by default (`RELEASE_DIR`, overridable).
+
+If the including project's Makefile also pulled in `snow.mk` (before
+`release.mk`), the zip bundles `disk.hda` alongside `disk.img` --
+`DEVICE_IMAGE` being defined is what triggers this, so it's automatic, not
+a separate flag. Projects that never use Snow don't get a `.hda` and don't
+pick up a `djjr` dependency just from including `release.mk`.
 
 Tagging the commit is deliberately **not** part of this target -- building
 an artifact and declaring a commit "the v1.2.0 release" are different
