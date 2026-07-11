@@ -8,10 +8,21 @@
 #
 # Usage: tools/mac-forks/guard-overwrite.sh <disk-image> [built-from-image]
 #
-# <built-from-image>, if given (e.g. disk.img, what disk.hda gets
-# djjr-converted from), is the reference point for the whole-image check
-# below. Omit it and that check instead falls back to the newest local
-# tracked file's mtime.
+# MUST run before disk-image gets touched by anything this invocation --
+# the caller (snow.mk) is responsible for that ordering. Everything here
+# compares disk-image against built-from-image (e.g. disk.hda against the
+# disk.img it was last converted from), not against local source files:
+# a build always happens strictly after the local files it reads, so
+# comparing against local mtimes directly means the disk always looks
+# "newer" than its own sources, for no reason other than build sequencing
+# -- confirmed, that was flagging every ordinary build. disk.hda and
+# built-from-image, from the same prior build, should sit within a few
+# seconds of each other; only something that touched disk-image
+# afterwards (i.e. the emulator) should push it meaningfully later.
+#
+# Falls back to comparing against the newest local tracked file if
+# built-from-image is omitted -- worse (re-introduces the false-positive
+# risk above) but better than no check at all for standalone use.
 #
 # Set FORCE=1 (env or `make ... FORCE=1`) to skip all of this --
 # needed for non-interactive use, since the confirmation prompt reads
@@ -38,18 +49,26 @@ hfsname() {
     printf '%s' "$1" | iconv -f UTF-8 -t MACINTOSH
 }
 
+# Reverse direction, for displaying a raw HFS catalog name (Mac Roman)
+# readably -- best-effort, falls back to the raw bytes if a file was
+# named with something outside Mac Roman's repertoire (shouldn't happen
+# from a real HFS volume, but don't fail the whole check over a display
+# nicety).
+display_name() {
+    printf '%s' "$1" | iconv -f MACINTOSH -t UTF-8 2>/dev/null || printf '%s' "$1"
+}
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 # Candidate files: same discovery build-floppy.sh/pull-from-disk.sh use
 # (tracked .hqx/.r sidecars name the real forked file; filter=mactext
-# names the real text file directly). Written to a file rather than piped
-# into the while loops below so they run in *this* shell, not a subshell
-# -- needed so $newest_local actually survives past the loop.
+# names the real text file directly) -- used only to label a flagged
+# file as "modified" vs "new", never for timing.
 git -c core.quotePath=false ls-files > "$tmp/tracked"
 
 newest_local=0
-: >"$tmp/candidates"   # real-path TAB local-mtime
+: >"$tmp/candidate_hfsnames"  # every candidate's expected HFS catalog name, one per line
 while IFS= read -r f; do
     if has_ext_ci "$f" hqx || has_ext_ci "$f" r; then
         real=${f%.*}
@@ -61,26 +80,24 @@ while IFS= read -r f; do
     [ -e "$real" ] || continue
     mtime=$(stat -f %m "$real")
     [ "$mtime" -gt "$newest_local" ] && newest_local=$mtime
-    printf '%s\t%s\n' "$real" "$mtime" >>"$tmp/candidates"
+    printf '%s\n' "$(hfsname "$real")" >>"$tmp/candidate_hfsnames"
 done <"$tmp/tracked"
 
-# Whole-image check: is the disk image newer than the image it was last
-# converted from (disk.img), by more than a build normally takes? disk.hda
-# is *always* written a moment after disk.img in a legitimate build (djjr
-# reads one, writes the other), so comparing against local source files
-# directly false-positived on every single ordinary build -- disk.hda is
-# necessarily newer than files that existed before the build even started.
-# A tolerance absorbs that normal sequencing gap; only something touching
-# disk.hda well after its own build (i.e. the emulator) trips this.
+# Reference point for everything below: when built-from-image (disk.img)
+# was last written. A small tolerance covers the normal gap between
+# build-floppy.sh finishing disk.img and djjr finishing disk.hda from it
+# -- both part of the same prior build, typically a couple seconds apart.
 if [ -n "$ref_image" ] && [ -f "$ref_image" ]; then
     ref_mtime=$(stat -f %m "$ref_image")
 else
     ref_mtime=$newest_local
 fi
+tolerance=30
+threshold=$((ref_mtime + tolerance))
+
 disk_mtime=$(stat -f %m "$disk")
-tolerance=300
 whole_flag=0
-[ "$disk_mtime" -gt "$((ref_mtime + tolerance))" ] && whole_flag=1
+[ "$disk_mtime" -gt "$threshold" ] && whole_flag=1
 
 # Per-file check: hls -l shows "Mon DD HH:MM" for recent files or
 # "Mon DD  YYYY" for older ones -- a 4-digit third token means "use this
@@ -88,7 +105,8 @@ whole_flag=0
 # recent-vs-old heuristic, same as classic ls -l).
 humount 2>/dev/null || true
 hmount "$disk" >/dev/null
-: >"$tmp/hls_dates"
+: >"$tmp/newer_files"
+: >"$tmp/new_files"
 hls -l 2>/dev/null | while IFS= read -r line; do
     case "$line" in
         f\ *|F\ *) ;;
@@ -101,56 +119,61 @@ hls -l 2>/dev/null | while IFS= read -r line; do
     # Force :00 seconds -- hls only has minute resolution, but `date -j
     # -f` fills any field missing from the input (seconds, here) from the
     # *current* wall-clock time rather than zero. Left alone, that makes
-    # the parsed epoch drift later the longer this script takes to run,
-    # confirmed to produce false positives on files pulled only seconds
-    # earlier in the same minute.
+    # the parsed epoch drift later the longer this script takes to run.
     case "$tyr" in
         *:*) fmt="%b %d %Y %H:%M:%S"; ts="$mon $day $(date +%Y) $tyr:00" ;;
         *)   fmt="%b %d %Y %H:%M:%S"; ts="$mon $day $tyr 00:00:00" ;;
     esac
     epoch=$(date -j -f "$fmt" "$ts" +%s 2>/dev/null) || continue
-    printf '%s\t%s\n' "$name" "$epoch" >>"$tmp/hls_dates"
+    # Compared against the SAME threshold as the whole-image check above
+    # -- a file's catalog date only matters here if something touched it
+    # after the last build, exactly like the whole-image case. A file
+    # that's simply old (an orphan nothing's cleaned up, say) doesn't
+    # need flagging every single time just because it has no candidate.
+    [ "$epoch" -gt "$threshold" ] || continue
+    if grep -qxF "$name" "$tmp/candidate_hfsnames" 2>/dev/null; then
+        echo "$name" >>"$tmp/newer_files"
+    else
+        echo "$name" >>"$tmp/new_files"
+    fi
 done
 humount >/dev/null
 
-: >"$tmp/newer_files"
-while IFS="$(printf '\t')" read -r real mtime; do
-    hname=$(hfsname "$real")
-    hepoch=$(awk -F'\t' -v n="$hname" '$1==n{print $2; exit}' "$tmp/hls_dates")
-    # hls only has minute resolution, so truncate the local mtime to the
-    # same minute before comparing -- otherwise a file pulled seconds ago
-    # (same minute as the disk's own timestamp) reads as "stale" purely
-    # from sub-minute jitter.
-    mtime_trunc=$((mtime - mtime % 60))
-    if [ -n "$hepoch" ] && [ "$hepoch" -gt "$mtime_trunc" ]; then
-        printf '%s\n' "$real" >>"$tmp/newer_files"
-    fi
-done <"$tmp/candidates"
+modified_count=$(wc -l <"$tmp/newer_files" | tr -d ' ')
+new_count=$(wc -l <"$tmp/new_files" | tr -d ' ')
+file_count=$((modified_count + new_count))
 
-file_count=$(wc -l <"$tmp/newer_files" | tr -d ' ')
-
-# Red for the warning + confirmation prompt specifically -- the whole
-# point is to stand out against the rest of the build's normal output.
-# Skipped when stderr isn't a terminal (FORCE=1 already exits before this
-# point for non-interactive use, but a redirected-but-not-forced run
-# shouldn't get raw escape codes in a log file).
+# Red for the warning + confirmation prompt, green for new files
+# specifically -- both skipped when stderr isn't a terminal (FORCE=1
+# already exits before this point for non-interactive use, but a
+# redirected-but-not-forced run shouldn't get raw escape codes in a log
+# file).
 if [ -t 2 ]; then
     RED=$(printf '\033[31m')
+    GREEN=$(printf '\033[32m')
     RESET=$(printf '\033[0m')
 else
     RED=
+    GREEN=
     RESET=
 fi
 
 if [ "$whole_flag" = 1 ] || [ "$file_count" -gt 0 ]; then
     printf '%sWARNING: %s may hold changes that only exist there.%s\n' "$RED" "$disk" "$RESET" >&2
-    [ "$whole_flag" = 1 ] && echo "  - $disk itself is newer than every local tracked file" >&2
-    if [ "$file_count" -gt 0 ]; then
-        echo "  - these files on $disk look newer than their local copies:" >&2
-        while IFS= read -r nf; do echo "      $nf" >&2; done <"$tmp/newer_files"
+    [ "$whole_flag" = 1 ] && echo "  - $disk itself is newer than the image it was last built from" >&2
+    if [ "$modified_count" -gt 0 ]; then
+        echo "  - these files on $disk look newer than the last build:" >&2
+        while IFS= read -r nf; do echo "      $(display_name "$nf")"; done <"$tmp/newer_files" >&2
+    fi
+    if [ "$new_count" -gt 0 ]; then
+        echo "  - these files exist on $disk but have no local/tracked counterpart (new):" >&2
+        while IFS= read -r nf; do
+            printf '      %s%s%s\n' "$GREEN" "$(display_name "$nf")" "$RESET" >&2
+        done <"$tmp/new_files"
     fi
     echo "" >&2
     echo "Run 'make pull' first if you want to keep those changes." >&2
+    [ "$new_count" -gt 0 ] && echo "(note: pull-from-disk.sh doesn't yet rescue brand-new files -- only refreshes ones it already knows about)" >&2
     echo "" >&2
     if [ "$file_count" -gt 0 ]; then
         phrase="BORK $file_count"

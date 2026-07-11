@@ -43,7 +43,11 @@ release: $(RELEASE_ZIP)
 # the ready-to-attach device image, not just the plain HFS one. Left out
 # entirely for projects that never included snow.mk, so `make release`
 # doesn't grow a hard djjr dependency for people who don't use Snow.
-$(RELEASE_ZIP): $(HFS_IMAGE) $(DEVICE_IMAGE)
+#
+# guard-hda (from snow.mk, only defined when DEVICE_IMAGE is) listed
+# first so it runs before $(HFS_IMAGE) gets a chance to rebuild -- same
+# ordering reasoning as snow.mk's own targets.
+$(RELEASE_ZIP): $(if $(DEVICE_IMAGE),guard-hda) $(HFS_IMAGE) $(DEVICE_IMAGE)
 	@mkdir -p $(RELEASE_DIR)
 	rm -f $@ $(RELEASE_DIR)/$(RELEASE_NAME).img $(if $(DEVICE_IMAGE),$(RELEASE_DIR)/$(RELEASE_NAME).hda)
 	cp $(HFS_IMAGE) $(RELEASE_DIR)/$(RELEASE_NAME).img
