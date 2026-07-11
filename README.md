@@ -179,7 +179,7 @@ brings them back. `pull-from-disk.sh` is `build-floppy.sh` run in reverse --
 same file discovery, opposite direction:
 
 ```sh
-tools/mac-forks/pull-from-disk.sh <disk-image>
+tools/mac-forks/pull-from-disk.sh <disk-image> [hfs-start-folder]
 ```
 
 Works on a plain `.img` or a `djjr`-converted `.hda` (mounts either with
@@ -197,6 +197,21 @@ been tracked. From there they're just ordinary new local files -- `git
 add` picks up `filter=mactext` if the extension matches, or `export.sh`'s
 own resource-fork detection sidecars it on the next commit if it's
 genuinely forked.
+
+That "new files" pass is recursive -- `hls`/`hcopy` have no built-in
+recursive mode, but HFS paths are just colon-separated components from
+the volume root, so walking the catalog by hand and descending into
+directory entries works fine. Finder-junk folders (`Trash`, `Temporary
+Items`, `Desktop Folder`, etc.) are skipped by name. Give it
+`hfs-start-folder` (e.g. `MyProject` or `MyProject:Sources`) to limit the
+walk to that folder and everything under it -- its own name is dropped
+from the resulting local paths, so contents land as if that folder's
+contents *were* the volume root. This is the way to bootstrap a brand
+new project straight from an existing `.hda`: point it at wherever the
+real project lives on the volume (skipping whatever else -- an old
+System Folder, other unrelated projects -- sits alongside it), before
+`.gitattributes`/`.gitignore` even exist yet. Omit it to walk the whole
+volume from its root, as before.
 
 Doesn't run `export.sh` or `git add` itself -- it only updates the real
 files (new or already-tracked). `git status`/`git diff` afterward show
