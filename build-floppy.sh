@@ -80,15 +80,22 @@ git -c core.quotePath=false ls-files | while IFS= read -r f; do
     fi
 done
 
-# mactext-filtered text files: -a auto-detects TEXT correctly, but
-# tags creator as generic UNIX. If a creator was given, fix it up so
-# the relevant IDE recognizes/double-click-opens these properly.
+# mactext-filtered text files are already genuine Mac Roman + CR on
+# disk (mactext-smudge already did that conversion) -- hcopy -a/-t's
+# own "text" mode isn't just CR/LF translation, it *also* reinterprets
+# the Unix-side bytes as Latin-1 and re-encodes them into Mac Roman.
+# Run an already-Mac-Roman file through that and every non-ASCII byte
+# gets double-converted (confirmed: a curly quote came out the other
+# side as an accented O). -r (raw) copies the data fork byte-for-byte,
+# which is what we actually want here; it doesn't set type/creator
+# though, so both are stamped explicitly afterward.
 git -c core.quotePath=false ls-files | while IFS= read -r f; do
     attr=$(git check-attr filter -- "$f" | awk -F': ' '{print $NF}')
     if [ "$attr" = mactext ]; then
-        hcopy -a "$f" ":$(hfsname "$f")"
+        hcopy -r "$f" ":$(hfsname "$f")"
+        hattrib -t TEXT ":$(hfsname "$f")"
         [ -z "$text_creator" ] || hattrib -c "$text_creator" ":$(hfsname "$f")"
-        echo "hcopy -a: $f"
+        echo "hcopy -r: $f"
     fi
 done
 
