@@ -34,7 +34,7 @@ include tools/mac-forks/image.mk
 
 SNOW_PATH    ?= $(HOME)/Snow
 SNOW         := $(SNOW_PATH)/Snow.app/Contents/MacOS/Snow
-DEVICE_IMAGE := $(BUILD_DIR)/source.hda   # source.img, converted to a SCSI-attachable device
+DEVICE_IMAGE := $(BUILD_DIR)/disk.hda   # disk.img, converted to a SCSI-attachable device
 
 # Named after the including project's own directory, so multiple
 # projects using this fragment don't collide writing into SNOW_PATH.

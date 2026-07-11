@@ -12,7 +12,7 @@ BUILD_DIR     ?= build
 VOLUME_BLOCKS ?= 8192   # 512-byte blocks = 4MB; bump if the project outgrows it
 VOLUME_LABEL  ?= Source
 
-HFS_IMAGE := $(BUILD_DIR)/source.img   # plain HFS, floppy format -- build-floppy.sh's native output
+HFS_IMAGE := $(BUILD_DIR)/disk.img   # plain HFS, floppy format -- build-floppy.sh's native output
 
 # Every tracked file is a potential input (sidecars for forked files,
 # real files directly for mactext ones) -- without this, the rule only
