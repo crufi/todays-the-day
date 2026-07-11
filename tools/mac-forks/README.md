@@ -368,7 +368,18 @@ sections above for what each piece does and why, and
 
 ```sh
 git init
+git commit --allow-empty -m "Initial commit"
 ```
+
+The empty commit matters -- `git subtree add` (next step) attaches onto
+an existing commit, and a bare `git init` has none yet. Skipping it fails
+with `fatal: ambiguous argument 'HEAD': unknown revision or path not in
+the working tree.` (and often a second, related `working tree has
+modifications` error, since git can't tell what's "modified" without a
+HEAD to compare against). If you already have real project files sitting
+in the directory ready to go, committing those instead of an empty
+commit works exactly the same way -- either way, subtree just needs
+*some* commit to exist first.
 
 ### 2. Pull in mac-forks
 
@@ -428,7 +439,7 @@ and encodes it automatically; you never `git add` those files yourself.
 
 ```sh
 git add .
-git commit -m "Initial commit"
+git commit -m "Add project source"
 ```
 
 ### 6. Verify with a genuinely fresh clone
