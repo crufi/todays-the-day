@@ -11,17 +11,27 @@
 # files; filter=mactext names the real text files. No per-project file
 # list needed.
 #
+# Also rescues files that exist on the disk with no tracked counterpart
+# at all -- created directly in the emulator, never added to git. Pulled
+# via MacBinary regardless of what they turn out to be (there's no
+# tracked .gitattributes match to consult yet for something never
+# tracked), which faithfully preserves whatever's actually there; from
+# that point on it's an ordinary new local file, same as one you'd
+# created by hand -- `git add` picks up .gitattributes' filter=mactext if
+# the extension matches, or export.sh's own resource-fork detection
+# sidecars it on the next commit if it's genuinely forked.
+#
 # Does NOT run export.sh or `git add` -- it only updates the real,
 # gitignored/working-tree files. The pre-commit hook already syncs
 # sidecars from real files normally; after running this, `git status`/
 # `git diff` show exactly what came back from the emulator, same as any
 # other local edit.
 #
-# Requires hfsutils (hmount/humount/hcopy) and macbinary -- same as
+# Requires hfsutils (hmount/humount/hcopy/hls) and macbinary -- same as
 # build-floppy.sh.
 set -eu
 
-for tool in hmount humount hcopy; do
+for tool in hmount humount hcopy hls; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "$0: missing $tool -- install hfsutils (brew install hfsutils)" >&2
         exit 1
@@ -48,6 +58,17 @@ cd "$root"
 hfsname() {
     printf '%s' "$1" | LC_ALL=C iconv -f UTF-8 -t MACINTOSH
 }
+
+# Reverse direction, for turning a raw HFS catalog name (Mac Roman) back
+# into a usable local filename -- best-effort, falls back to the raw
+# bytes if a file was named with something outside Mac Roman's
+# repertoire (shouldn't happen from a real HFS volume).
+display_name() {
+    printf '%s' "$1" | LC_ALL=C iconv -f MACINTOSH -t UTF-8 2>/dev/null || printf '%s' "$1"
+}
+
+tmp_root=$(mktemp -d)
+trap 'rm -rf "$tmp_root"' EXIT
 
 humount 2>/dev/null || true   # in case a previous run left something mounted
 hmount "$disk"
@@ -91,6 +112,43 @@ git -c core.quotePath=false ls-files | while IFS= read -r f; do
             echo "hcopy -r: $f"
         fi
     fi
+done
+
+# New files: present on the disk, no tracked counterpart at all -- build
+# the same "expected HFS name per tracked candidate" list guard-overwrite.sh
+# uses, then anything on the disk that doesn't match gets pulled too.
+: >"$tmp_root/candidate_hfsnames"
+git -c core.quotePath=false ls-files | while IFS= read -r f; do
+    if has_ext_ci "$f" hqx || has_ext_ci "$f" r; then
+        real=${f%.*}
+    else
+        attr=$(git check-attr filter -- "$f" | awk -F': ' '{print $NF}')
+        [ "$attr" = mactext ] || continue
+        real=$f
+    fi
+    printf '%s\n' "$(hfsname "$real")" >>"$tmp_root/candidate_hfsnames"
+done
+
+hls -l 2>/dev/null | while IFS= read -r line; do
+    case "$line" in
+        f\ *|F\ *) ;;
+        *) continue ;;
+    esac
+    set -- $line
+    shift 7
+    name="$*"
+    grep -qxF "$name" "$tmp_root/candidate_hfsnames" 2>/dev/null && continue
+    real=$(display_name "$name")
+    tmp=$(mktemp -d)
+    if hcopy -m ":$name" "$tmp/blob.bin" 2>/dev/null; then
+        macbinary decode -p -C "$tmp" -o restored <"$tmp/blob.bin"
+        mkdir -p "$(dirname "$real")"
+        rm -rf "${real:?}"
+        mv "$tmp/restored" "$real"
+        touch "$real"
+        echo "hcopy -m (new): $real"
+    fi
+    rm -rf "$tmp"
 done
 
 humount

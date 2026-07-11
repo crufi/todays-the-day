@@ -189,9 +189,18 @@ double-conversion bug `build-floppy.sh` works around applies here too),
 which lands them in the working tree exactly as genuine Mac Roman + CR,
 ready for git's own `mactext` filter to normalize at the next `git add`.
 
+Also rescues files that exist on the disk with no tracked counterpart at
+all -- created directly in the emulator, never added to git. These are
+pulled via MacBinary regardless of what they turn out to be, since
+there's no `.gitattributes` match to consult for something that's never
+been tracked. From there they're just ordinary new local files -- `git
+add` picks up `filter=mactext` if the extension matches, or `export.sh`'s
+own resource-fork detection sidecars it on the next commit if it's
+genuinely forked.
+
 Doesn't run `export.sh` or `git add` itself -- it only updates the real
-files. `git status`/`git diff` afterward show exactly what came back from
-the emulator, same as any other local edit.
+files (new or already-tracked). `git status`/`git diff` afterward show
+exactly what came back from the emulator, same as any other local edit.
 
 Wired into `snow.mk` as `make pull` -- see below.
 

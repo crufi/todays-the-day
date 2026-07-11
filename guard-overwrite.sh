@@ -173,7 +173,7 @@ if [ "$whole_flag" = 1 ] || [ "$file_count" -gt 0 ]; then
     fi
     echo "" >&2
     echo "Run 'make pull' first if you want to keep those changes." >&2
-    [ "$new_count" -gt 0 ] && echo "(note: pull-from-disk.sh doesn't yet rescue brand-new files -- only refreshes ones it already knows about)" >&2
+    [ "$new_count" -gt 0 ] && echo "(note: new files land untracked -- git add them once you're happy with them)" >&2
     echo "" >&2
     if [ "$file_count" -gt 0 ]; then
         phrase="BORK $file_count"
