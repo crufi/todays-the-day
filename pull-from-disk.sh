@@ -196,7 +196,27 @@ walk() {
 }
 
 if [ -n "$start_folder" ]; then
-    walk ":$start_folder" ""
+    # start_folder is a plain UTF-8 argument (typed at a modern shell),
+    # but HFS paths are raw Mac Roman bytes -- hfsname() converts the
+    # whole colon-separated string in one pass (':' is plain ASCII,
+    # unaffected either way). Skipping this meant a folder name with any
+    # non-ASCII character (confirmed: a "ƒ") never matched anything on
+    # the volume, and since hls's own error was swallowed below, the
+    # whole run silently did nothing -- "done pulling" with zero files
+    # and no indication anything was wrong.
+    hfs_start=":$(hfsname "$start_folder")"
+    # hls always exits 0 even when the path doesn't exist (it just prints
+    # "no such file or directory" to stderr and moves on) -- confirmed,
+    # can't check via exit status. An existing-but-empty folder produces
+    # no stderr output at all, so any stderr here means the path is
+    # actually wrong.
+    hls_err=$(hls -l "$hfs_start" 2>&1 >/dev/null)
+    if [ -n "$hls_err" ]; then
+        echo "$0: \"$start_folder\" not found on $disk (checked as $hfs_start): $hls_err" >&2
+        humount
+        exit 1
+    fi
+    walk "$hfs_start" ""
 else
     walk "" ""
 fi

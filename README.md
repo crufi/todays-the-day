@@ -211,7 +211,12 @@ new project straight from an existing `.hda`: point it at wherever the
 real project lives on the volume (skipping whatever else -- an old
 System Folder, other unrelated projects -- sits alongside it), before
 `.gitattributes`/`.gitignore` even exist yet. Omit it to walk the whole
-volume from its root, as before.
+volume from its root, as before. It's converted from UTF-8 to Mac Roman
+before use (same as every other HFS name here), and checked up front --
+a folder that doesn't exist on the volume fails loudly rather than
+silently pulling nothing, which is what happened before this check
+existed (`hls` prints its own "no such file or directory" but still
+exits 0, so a naive exit-status check doesn't catch it either).
 
 Doesn't run `export.sh` or `git add` itself -- it only updates the real
 files (new or already-tracked). `git status`/`git diff` afterward show
