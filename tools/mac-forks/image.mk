@@ -14,7 +14,16 @@ VOLUME_LABEL  ?= Source
 
 HFS_IMAGE := $(BUILD_DIR)/source.img   # plain HFS, floppy format -- build-floppy.sh's native output
 
-$(HFS_IMAGE): tools/mac-forks/import.sh
+# Every tracked file is a potential input (sidecars for forked files,
+# real files directly for mactext ones) -- without this, the rule only
+# depended on import.sh itself, so editing a .c file and re-running
+# `make run`/`make release` would silently keep serving whatever image
+# was already sitting in $(BUILD_DIR), stale content and all. Confirmed:
+# this is exactly how an already-fixed mactext encoding issue kept
+# showing up in Snow long after the source was actually correct.
+TRACKED_FILES := $(shell git -c core.quotePath=false ls-files)
+
+$(HFS_IMAGE): tools/mac-forks/import.sh $(TRACKED_FILES)
 	sh tools/mac-forks/import.sh
 	sh tools/mac-forks/build-floppy.sh $@ $(VOLUME_BLOCKS) $(VOLUME_LABEL) $(TEXT_CREATOR)
 
