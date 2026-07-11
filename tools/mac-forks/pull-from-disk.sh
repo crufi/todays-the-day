@@ -4,7 +4,16 @@
 # files got edited directly in the emulator (inside the IDE, say) and
 # those edits only exist on the disk image so far.
 #
-# Usage: tools/mac-forks/pull-from-disk.sh <disk-image>
+# Usage: tools/mac-forks/pull-from-disk.sh <disk-image> [hfs-start-folder]
+#
+# hfs-start-folder, if given (e.g. "MyProject" or "MyProject:Sources"),
+# limits the "new files" pass (below) to that folder and everything
+# under it, recursively -- contents land relative to the repo root, as
+# if that folder's contents were the root (its own name isn't part of
+# the resulting local paths). Meant for bootstrapping a new project
+# straight from an existing .hda: point this at wherever the real
+# project lives on the volume, skip whatever else is on there.
+# Omit it to walk the whole volume from its root, as before.
 #
 # Driven by the same git-attribute discovery as build-floppy.sh/export.sh/
 # import.sh: tracked .hqx/.r sidecars name the real, materialized forked
@@ -44,8 +53,9 @@ for tool in macbinary iconv; do
     fi
 done
 
-disk=${1:?"usage: $0 <disk-image>"}
+disk=${1:?"usage: $0 <disk-image> [hfs-start-folder]"}
 [ -f "$disk" ] || { echo "$0: $disk: no such file" >&2; exit 1; }
+start_folder=${2:-}
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
@@ -129,27 +139,67 @@ git -c core.quotePath=false ls-files | while IFS= read -r f; do
     printf '%s\n' "$(hfsname "$real")" >>"$tmp_root/candidate_hfsnames"
 done
 
-hls -l 2>/dev/null | while IFS= read -r line; do
-    case "$line" in
-        f\ *|F\ *) ;;
-        *) continue ;;
-    esac
-    set -- $line
-    shift 7
-    name="$*"
-    grep -qxF "$name" "$tmp_root/candidate_hfsnames" 2>/dev/null && continue
-    real=$(display_name "$name")
-    tmp=$(mktemp -d)
-    if hcopy -m ":$name" "$tmp/blob.bin" 2>/dev/null; then
-        macbinary decode -p -C "$tmp" -o restored <"$tmp/blob.bin"
-        mkdir -p "$(dirname "$real")"
-        rm -rf "${real:?}"
-        mv "$tmp/restored" "$real"
-        touch "$real"
-        echo "hcopy -m (new): $real"
-    fi
-    rm -rf "$tmp"
-done
+# Recursive: hls/hcopy have no built-in recursive mode, but HFS paths are
+# just colon-separated components from the volume root (":Sub:Nested:File"),
+# so walking the catalog by hand and recursing into directory entries
+# works fine. Finder-junk folders are skipped by name -- nothing useful
+# ever lives in them, and pulling "Trash" contents would be actively
+# wrong. hfs_dir is always either "" (volume root, no path arg needed)
+# or a leading-colon path; local_dir is the matching local prefix.
+walk() {
+    local hfs_dir=$1
+    local local_dir=$2
+    local line dname fname child_hfs real tmp
+    if [ -z "$hfs_dir" ]; then
+        hls -l 2>/dev/null
+    else
+        hls -l "$hfs_dir" 2>/dev/null
+    fi | while IFS= read -r line; do
+        case "$line" in
+            d\ *)
+                set -- $line
+                shift 6   # flag, count, "item(s)", mon, day, time/year
+                dname="$*"
+                case "$dname" in
+                    Trash|"Temporary Items"|"Desktop Folder"|Desktop|"Rescued Items"|"Network Trash Folder") continue ;;
+                esac
+                if [ -z "$hfs_dir" ]; then
+                    walk ":$dname" "$local_dir$(display_name "$dname")/"
+                else
+                    walk "$hfs_dir:$dname" "$local_dir$(display_name "$dname")/"
+                fi
+                ;;
+            f\ *|F\ *)
+                set -- $line
+                shift 7
+                fname="$*"
+                if [ -z "$hfs_dir" ]; then
+                    child_hfs=":$fname"
+                else
+                    child_hfs="$hfs_dir:$fname"
+                fi
+                real="$local_dir$(display_name "$fname")"
+                grep -qxF "$(hfsname "$real")" "$tmp_root/candidate_hfsnames" 2>/dev/null && continue
+                tmp=$(mktemp -d)
+                if hcopy -m "$child_hfs" "$tmp/blob.bin" 2>/dev/null; then
+                    macbinary decode -p -C "$tmp" -o restored <"$tmp/blob.bin"
+                    mkdir -p "$(dirname "$real")"
+                    rm -rf "${real:?}"
+                    mv "$tmp/restored" "$real"
+                    touch "$real"
+                    echo "hcopy -m (new): $real"
+                fi
+                rm -rf "$tmp"
+                ;;
+        esac
+    done
+}
+
+if [ -n "$start_folder" ]; then
+    walk ":$start_folder" ""
+else
+    walk "" ""
+fi
 
 humount
 echo "done pulling from $disk"
