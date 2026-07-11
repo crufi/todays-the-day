@@ -112,8 +112,21 @@ done <"$tmp/candidates"
 
 file_count=$(wc -l <"$tmp/newer_files" | tr -d ' ')
 
+# Red for the warning + confirmation prompt specifically -- the whole
+# point is to stand out against the rest of the build's normal output.
+# Skipped when stderr isn't a terminal (FORCE=1 already exits before this
+# point for non-interactive use, but a redirected-but-not-forced run
+# shouldn't get raw escape codes in a log file).
+if [ -t 2 ]; then
+    RED=$(printf '\033[31m')
+    RESET=$(printf '\033[0m')
+else
+    RED=
+    RESET=
+fi
+
 if [ "$whole_flag" = 1 ] || [ "$file_count" -gt 0 ]; then
-    echo "WARNING: $disk may hold changes that only exist there." >&2
+    printf '%sWARNING: %s may hold changes that only exist there.%s\n' "$RED" "$disk" "$RESET" >&2
     [ "$whole_flag" = 1 ] && echo "  - $disk itself is newer than every local tracked file" >&2
     if [ "$file_count" -gt 0 ]; then
         echo "  - these files on $disk look newer than their local copies:" >&2
@@ -127,7 +140,7 @@ if [ "$whole_flag" = 1 ] || [ "$file_count" -gt 0 ]; then
     else
         phrase="BORK DISK"
     fi
-    printf 'Type %s to overwrite %s and discard anything only stored there: ' "$phrase" "$disk" >&2
+    printf '%sType %s to overwrite %s and discard anything only stored there: %s' "$RED" "$phrase" "$disk" "$RESET" >&2
     read -r answer
     if [ "$answer" != "$phrase" ]; then
         echo "aborted -- $disk left untouched" >&2
