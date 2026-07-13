@@ -6,6 +6,7 @@
 
 SNOW_WORKSPACE ?= $(HOME)/Snow/iix.snoww   # <-- point this at your own workspace
 TEXT_CREATOR   := KAHL   # Symantec/THINK C, so double-click opens source in the IDE
+VOLUME_LABEL   := Today's the Day   # HFS volume name shown in the emulator
 
 include tools/mac-forks/snow.mk
 
