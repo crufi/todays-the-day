@@ -1,7 +1,7 @@
 /* auto-generated (do not modify): type=TEXT creator=KAHL hex=544558544B41484C000000000000000000000000000000000000000000000000 */
 //==================================================================================
 // CrutchError.c
-// ©2023 Steve Crutchfield
+// ©2026 Steve Crutchfield
 //
 // Low-level error handling routines to pop up a dialog box, do string wrangling
 // with Sprintf(), etc.  Separated here because the error handling routines (Assert
@@ -811,6 +811,7 @@ Boolean CurrentProcessIsFrontProcess(void)
 			 && sameProcess);
 }
 
+/*
 Boolean WeAreAMultiSegmentCodeResource(void)
 {
 #if __option(a4_globals) && !__option(pcrel_strings)
@@ -848,3 +849,4 @@ Handle GetHandleToThisMultiSegmentCodeResource(void)
 	
 	return NULL;
 }
+*/

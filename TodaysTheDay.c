@@ -1,6 +1,6 @@
 //==================================================================================
 // Today's the Day
-// ©2023 Steve Crutchfield
+// ©2026 Steve Crutchfield
 // -----------------------
 // 
 // Patches DrawString in the Finder to draw "Today" or "Yesterday" (localizable in

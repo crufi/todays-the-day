@@ -579,7 +579,7 @@ Handle GetHandleToThisMultiSegmentCodeResource(void);
 
 // pull in my C exception-handling system (it lives in its own files, but needs our
 // STATIC_ASSERT machinery above, and our Assert_THROWS macros need its throw()):
-#include "Exceptions.h"
+//#include "Exceptions.h"
 
 #ifdef __cplusplus
 }
