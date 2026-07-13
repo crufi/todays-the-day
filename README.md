@@ -49,5 +49,5 @@ After cloning, run:
 sh tools/mac-forks/install.sh
 ```
 
-to materialize the real, Symantec C++-usable project and resource files. You can them drop them into an emulator's disk image
+to materialize the real, Symantec C++-usable project and resource files. You can then drop them into an emulator's disk image
 (I love `hfsutils` for this) and build with Symantec C++.

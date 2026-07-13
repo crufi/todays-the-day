@@ -15,9 +15,15 @@
 // Optimized to only update stored date strings for today and yesterday when the
 // lo-mem global variable Time moves out of range previously noted for today's date.
 //
-// One quirk - this would probably also impact any cdevs running under Finder that 
-// use DrawString/Text to show an abbreviated date.  I haven't tested this or tried 
+// One quirk - this would probably also impact any cdevs running under Finder that
+// use DrawString/Text to show an abbreviated date.  I haven't tested this or tried
 // to correct for it.  (We do check to ensure not drawing into a DA window.)
+//
+// Another note - we patch only DrawString/DrawText, not StringWidth/TextWidth, so
+// the Finder still lays out columns for the full date string and then draws the
+// shorter word into that space.  That matches Mac OS 8's own look, so no correction
+// is needed -- just know the drawn text can be narrower than the space reserved
+// for it.
 //
 // Tested under 6.0.8, 7.1, 7.5.5.
 //==================================================================================
@@ -42,10 +48,9 @@ void UpdateDateInfo(void);
 Boolean FindAndReplacePrefix(unsigned char *s, short strLen, 
 	Str255 p, Str255 replaceWith, Str255 outStr);
 
-Boolean FindAReplacableDateString(unsigned char *s, short strLen);
+Boolean FindAReplaceableDateString(unsigned char *s, short strLen);
 
 Str255 gScratchStr;
-DateTimeRec gTodaysDate;
 Str255 gTodaysDateStr;
 Str255 gYesterdaysDateStr;
 
@@ -64,7 +69,6 @@ void UpdateDateInfo(void)
 	gStartOfDaySecs = secs - secs % (24L * 60 * 60);
 	gEndOfDaySecs = gStartOfDaySecs + 24L * 60 * 60;
 
-	Secs2Date(secs, &gTodaysDate);
 	IUDateString(secs, abbrevDate, gTodaysDateStr);
 
 	secs -= 24L * 60 * 60;  // one day in seconds
@@ -107,7 +111,10 @@ Boolean FindAndReplacePrefix(unsigned char *s, short strLen,
 	
 	if (strLen < p[0])
 		return false;  // too short for prefix
-	
+
+	if (strLen - p[0] + replaceWith[0] > 255)
+		return false;  // replacement (perhaps localized) would overflow a Str255
+
 	for (i = 1; i <= p[0]; i++)
 		if (s[i - 1] != p[i])
 			return false;
@@ -123,7 +130,7 @@ Boolean FindAndReplacePrefix(unsigned char *s, short strLen,
 	return true;
 }
 
-Boolean FindAReplacableDateString(unsigned char *s, short strLen)
+Boolean FindAReplaceableDateString(unsigned char *s, short strLen)
 {
 	// does our core work needed by both DrawString and DrawText patches:
 	// 
@@ -169,7 +176,7 @@ pascal void PatchedDrawString(Str255 s)
 {
 	SetUpA4();
 
-	if (FindAReplacableDateString(&s[1], s[0]))
+	if (FindAReplaceableDateString(&s[1], s[0]))
 		// update the parameter on the stack; original _DrawString gets it below
 		s = gScratchStr;
 
@@ -181,7 +188,7 @@ pascal void PatchedDrawText(unsigned char *buf, short byteOff, short byteCount)
 {
 	SetUpA4();
 	
-	if (FindAReplacableDateString(buf + byteOff, byteCount))
+	if (FindAReplaceableDateString(buf + byteOff, byteCount))
 	{
 		// update parameters on the stack; original _DrawText gets them below
 		buf = &gScratchStr[1];
@@ -209,17 +216,15 @@ void main(void)
 	// get handle to ourselves and check flags	
 
 	if (ConfirmResourceWithFlags(
-			initHndl = RecoverHandle(initPtr), 
-			resSysHeap & resLocked)
+			initHndl = RecoverHandle(initPtr),
+			resSysHeap | resLocked)
+		&& ConfirmResourceWithFlags(gTodayWordStr = GetString(128), resSysHeap)
+		&& ConfirmResourceWithFlags(gYesterdayWordStr = GetString(129), resSysHeap)
 		)
 	{
 		// (we set Locked bit in "Set Project Type..." (confirmed above) so don't need HLock here)
 		DetachResource(initHndl);
-		
-		ConfirmResourceWithFlags(gTodayWordStr = GetString(128), resSysHeap);
 		DetachResource((Handle) gTodayWordStr);
-		
-		ConfirmResourceWithFlags(gYesterdayWordStr = GetString(129), resSysHeap);
 		DetachResource((Handle) gYesterdayWordStr);
 
 		// set up global info
