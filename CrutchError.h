@@ -52,7 +52,16 @@ typedef Boolean bool;
 // is an expression but discards the value, so can be used e.g. in straight C code
 // after the declarations section of a block.
 
-#define STATIC_ASSERT(cond) 	  			struct { int _ : !!(cond); }
+#define _STATIC_ASSERT_TYPE(cond) 	  		struct { int _ : !!(cond); }
+
+#ifndef __cplusplus
+// some prior version of THINK C needed below to be a variable definition (i.e. add
+// 'anon' to it), but no longer true (?) so these are identical now:
+#define STATIC_ASSERT(cond) 	  			_STATIC_ASSERT_TYPE(cond)
+#else
+#define STATIC_ASSERT(cond) 	  			_STATIC_ASSERT_TYPE(cond)
+#endif
+
 #define STATIC_ASSERT_EXPR(cond)  			sizeof(STATIC_ASSERT(cond))
 #define STATIC_ASSERT_EXPR_DISCARD(cond)  	((void) sizeof(STATIC_ASSERT(cond)))
 
@@ -579,7 +588,7 @@ Handle GetHandleToThisMultiSegmentCodeResource(void);
 
 // pull in my C exception-handling system (it lives in its own files, but needs our
 // STATIC_ASSERT machinery above, and our Assert_THROWS macros need its throw()):
-//#include "Exceptions.h"
+#include "Exceptions.h"
 
 #ifdef __cplusplus
 }
